@@ -1,18 +1,30 @@
+export type FacilityUnit = {
+    code: string;
+    fueltech_id: string;
+    status_id: string;
+};
+
 export type Facility = {
     code: string;
     name: string;
     network_region: string;
+    units: FacilityUnit[];
 };
 
-// Query param names of /api/facilities
+// Filter param names used in the page URL
 export const FacilityParam = {
     STATUS_ID: "status_id",
-    FUELTECH_GROUP_ID: "fueltech_group_id",
+    FUELTECH_ID: "fueltech_id",
     NETWORK_REGION: "network_region"
 } as const;
 
 export type FacilityFilters = {
     statusIds: string[];
-    fueltechGroupIds: string[];
-    networkRegion?: string;
+    fueltechIds: string[];
+    networkRegions: string[];
+};
+
+export type FilterOption = {
+    value: string;
+    label: string;
 };
