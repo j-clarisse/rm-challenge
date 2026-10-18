@@ -1,7 +1,5 @@
 import {useEffect, useMemo, useState} from 'react';
 import {Alert, AppShell, Button, Group, Loader, Stack, Title} from '@mantine/core';
-import {useDisclosure} from '@mantine/hooks';
-import {FunnelIcon} from '@phosphor-icons/react';
 import FacilityFilter from './components/FacilityFilter';
 import FacilityList from './components/FacilityList';
 import type {Facility} from './types';
@@ -17,7 +15,6 @@ import {
 } from './utils';
 
 const App = () => {
-    const [navOpened, {toggle: toggleNav}] = useDisclosure(true); // Open on initial load
     const [filters, setFilters] = useState(() => getFiltersFromSearch(window.location.search));
     const [facilities, setFacilities] = useState<Facility[] | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -56,7 +53,7 @@ const App = () => {
     return (
         <AppShell
             header={{height: 56}}
-            navbar={{width: 260, breakpoint: 'sm', collapsed: {mobile: !navOpened, desktop: !navOpened}}}
+            navbar={{width: 260, breakpoint: 0}} // Always shown; breakpoint 0 avoids the mobile overlay
             padding="md"
         >
             <AppShell.Header>
@@ -82,8 +79,8 @@ const App = () => {
                     />
                     <Stack gap={6}>
                         <FacilityFilter
-                            label="Fuel tech"
-                            placeholder="All fuel techs"
+                            label="Fuel technology"
+                            placeholder="All fuel technologies"
                             data={FUELTECH_GROUPED_OPTIONS}
                             value={filters.fueltechIds}
                             onChange={(fueltechIds) => setFilters((prev) => ({...prev, fueltechIds}))}
@@ -108,19 +105,11 @@ const App = () => {
                 </Stack>
             </AppShell.Navbar>
             <AppShell.Main>
-                <Button
-                    variant={navOpened ? "default" : "light"}
-                    onClick={toggleNav}
-                    mb="md"
-                    leftSection={<FunnelIcon size={16}/>}
-                    aria-pressed={navOpened}
-                >
-                    Filters
-                </Button>
                 {error ? (
                     <Alert color="red" title="Couldn't load facilities">{error}</Alert>
                 ) : visibleFacilities ? (
-                    <FacilityList facilities={visibleFacilities}/>
+                    // Remount on filter change so pagination resets to page 1
+                    <FacilityList key={buildSearchFromFilters(filters)} facilities={visibleFacilities}/>
                 ) : (
                     <Loader/>
                 )}

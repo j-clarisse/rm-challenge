@@ -162,3 +162,9 @@ export function filterFacilities(facilities: Facility[], filters: FacilityFilter
         return units.length > 0 ? [{...facility, units}] : [];
     });
 }
+
+// Test: page 1 -> first `size` items; last page returns the remainder; page past the end -> [];
+//       empty list -> [].
+export function paginate<T>(items: T[], page: number, size: number): T[] {
+    return items.slice((page - 1) * size, page * size);
+}
