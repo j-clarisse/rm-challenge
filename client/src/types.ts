@@ -2,6 +2,7 @@ export type FacilityUnit = {
     code: string;
     fueltech_id: string;
     status_id: string;
+    commencement_date?: string | null;
 };
 
 export type Facility = {

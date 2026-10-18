@@ -2,6 +2,7 @@ import {
     FacilityParam,
     type Facility,
     type FacilityFilters,
+    type FacilityUnit,
     type FilterOption,
     type FueltechOption
 } from './types';
@@ -63,9 +64,44 @@ export const NETWORK_REGION_OPTIONS: FilterOption[] = [
     {value: "WEM", label: "WA"}
 ];
 
-// Test: known code -> label (VIC1 -> "VIC", WEM -> "WA"); unknown code -> returned as-is.
-export function getRegionLabel(code: string): string {
-    return NETWORK_REGION_OPTIONS.find((option) => option.value === code)?.label ?? code;
+export const STATUS_COLOURS: Record<string, string> = {
+    operating: "green",
+    commissioning: "yellow",
+    committed: "blue",
+    retired: "gray"
+};
+
+// Test: known value -> label (VIC1 -> "VIC", coal_black -> "Coal (Black)"); unknown value -> returned as-is.
+export function getLabel(options: FilterOption[], value: string): string {
+    return options.find((option) => option.value === value)?.label ?? value;
+}
+
+const DATE_FORMAT = new Intl.DateTimeFormat("en-AU", {day: "numeric", month: "short", year: "numeric", timeZone: "UTC"});
+
+// Formats an API date ("2005-01-06T00:00:00+10:00") as "6 Jan 2005", using only the
+// YYYY-MM-DD part so the timezone offset can't shift the day.
+// Test: normal date; null/undefined -> "—"; "+08:00" date keeps its calendar day.
+export function formatDate(date: string | null | undefined): string {
+    if (!date) {
+        return "—";
+    }
+    const [year, month, day] = date.slice(0, 10).split("-").map(Number);
+    return DATE_FORMAT.format(new Date(Date.UTC(year, month - 1, day)));
+}
+
+// Rolls unit details up to facility level for the card summary.
+// Test: statuses/fuel techs de-duplicated in first-seen order; earliest date chosen;
+//       no dates -> earliestCommencement null.
+export function summariseUnits(units: FacilityUnit[]) {
+    const dates = units
+        .map((unit) => unit.commencement_date)
+        .filter((date): date is string => Boolean(date))
+        .sort();
+    return {
+        statusIds: [...new Set(units.map((unit) => unit.status_id))],
+        fueltechIds: [...new Set(units.map((unit) => unit.fueltech_id))],
+        earliestCommencement: dates[0] ?? null
+    };
 }
 
 // Accepts both repeated params (?a=x&a=y) and comma lists (?a=x,y).
@@ -101,25 +137,28 @@ export function buildSearchFromFilters({statusIds, fueltechIds, networkRegions}:
     return query ? `?${query}` : "";
 }
 
-// Region matches at facility level; status and fuel tech must match on the same unit
-// (mirrors how the Open Electricity API filters).
-// Test: no filters -> all; region only; status only; fuel tech only;
-//       status + fuel tech on different units -> excluded; facility with no units
-//       excluded once a unit filter is set.
+function unitMatches(unit: FacilityUnit, {statusIds, fueltechIds}: FacilityFilters): boolean {
+    return (statusIds.length === 0 || statusIds.includes(unit.status_id)) &&
+        (fueltechIds.length === 0 || fueltechIds.includes(unit.fueltech_id));
+}
+
+// Region matches at facility level; status and fuel tech must match on the same unit.
+// Units are trimmed to the matching ones (mirrors how the Open Electricity API filters).
+// Test: no filters -> all facilities and all units; region only; status only; fuel tech only;
+//       status + fuel tech on different units -> excluded; returned units are only matching ones;
+//       facility with no units excluded once a unit filter is set.
 export function filterFacilities(facilities: Facility[], filters: FacilityFilters): Facility[] {
     const {statusIds, fueltechIds, networkRegions} = filters;
     const hasUnitFilter = statusIds.length > 0 || fueltechIds.length > 0;
 
-    return facilities.filter((facility) => {
+    return facilities.flatMap((facility) => {
         if (networkRegions.length > 0 && !networkRegions.includes(facility.network_region)) {
-            return false;
+            return [];
         }
         if (!hasUnitFilter) {
-            return true;
+            return [facility];
         }
-        return facility.units.some((unit) =>
-            (statusIds.length === 0 || statusIds.includes(unit.status_id)) &&
-            (fueltechIds.length === 0 || fueltechIds.includes(unit.fueltech_id))
-        );
+        const units = facility.units.filter((unit) => unitMatches(unit, filters));
+        return units.length > 0 ? [{...facility, units}] : [];
     });
 }
