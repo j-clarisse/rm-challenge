@@ -1,10 +1,12 @@
 import {useEffect, useMemo, useState} from 'react';
-import {Alert, AppShell, Button, Checkbox, Group, Loader, Stack, Title} from '@mantine/core';
+import {Alert, AppShell, Button, Checkbox, Group, Loader, ScrollArea, Select, Stack, Title} from '@mantine/core';
 import FacilityFilter from './components/FacilityFilter';
 import FacilityList from './components/FacilityList';
-import type {Facility} from './types';
+import type {CommencedRange, ExpectedClosureRange, Facility} from './types';
 import {
     buildSearchFromFilters,
+    COMMENCED_OPTIONS,
+    EXPECTED_CLOSURE_OPTIONS,
     filterFacilities,
     FUELTECH_GROUPED_OPTIONS,
     getFiltersFromSearch,
@@ -64,53 +66,72 @@ const App = () => {
                 </Group>
             </AppShell.Header>
             <AppShell.Navbar p="md">
-                <Stack gap="md">
-                    <FacilityFilter
-                        label="Region"
-                        placeholder="All regions"
-                        data={NETWORK_REGION_OPTIONS}
-                        value={filters.networkRegions}
-                        onChange={(networkRegions) => setFilters((prev) => ({...prev, networkRegions}))}
-                    />
-                    <FacilityFilter
-                        label="Status"
-                        placeholder="All statuses"
-                        data={STATUS_OPTIONS}
-                        value={filters.statusIds}
-                        onChange={(statusIds) => setFilters((prev) => ({...prev, statusIds}))}
-                    />
-                    <Stack gap={6}>
+                <AppShell.Section grow component={ScrollArea}>
+                    <Stack gap="md">
                         <FacilityFilter
-                            label="Fuel technology"
-                            placeholder="All fuel technologies"
-                            data={FUELTECH_GROUPED_OPTIONS}
-                            value={filters.fueltechIds}
-                            onChange={(fueltechIds) => setFilters((prev) => ({...prev, fueltechIds}))}
+                            label="Region"
+                            placeholder="All regions"
+                            data={NETWORK_REGION_OPTIONS}
+                            value={filters.networkRegions}
+                            onChange={(networkRegions) => setFilters((prev) => ({...prev, networkRegions}))}
                         />
-                        <Group gap="xs">
-                            <Button
-                                size="compact-xs"
-                                variant="light"
-                                onClick={() => setFilters((prev) => ({...prev, fueltechIds: RENEWABLE_FUELTECH_IDS}))}
-                            >
-                                Renewables
-                            </Button>
-                            <Button
-                                size="compact-xs"
-                                variant="light"
-                                onClick={() => setFilters((prev) => ({...prev, fueltechIds: NON_RENEWABLE_FUELTECH_IDS}))}
-                            >
-                                Non-renewables
-                            </Button>
-                        </Group>
+                        <FacilityFilter
+                            label="Status"
+                            placeholder="All statuses"
+                            data={STATUS_OPTIONS}
+                            value={filters.statusIds}
+                            onChange={(statusIds) => setFilters((prev) => ({...prev, statusIds}))}
+                        />
+                        <Stack gap={6}>
+                            <FacilityFilter
+                                label="Fuel technology"
+                                placeholder="All fuel technologies"
+                                data={FUELTECH_GROUPED_OPTIONS}
+                                value={filters.fueltechIds}
+                                onChange={(fueltechIds) => setFilters((prev) => ({...prev, fueltechIds}))}
+                            />
+                            <Group gap="xs">
+                                <Button
+                                    size="compact-xs"
+                                    variant="light"
+                                    onClick={() => setFilters((prev) => ({...prev, fueltechIds: RENEWABLE_FUELTECH_IDS}))}
+                                >
+                                    Renewables
+                                </Button>
+                                <Button
+                                    size="compact-xs"
+                                    variant="light"
+                                    onClick={() => setFilters((prev) => ({...prev, fueltechIds: NON_RENEWABLE_FUELTECH_IDS}))}
+                                >
+                                    Non-renewables
+                                </Button>
+                            </Group>
+                        </Stack>
+                        <Select
+                            label="Commenced"
+                            placeholder="Any time"
+                            data={COMMENCED_OPTIONS}
+                            value={filters.commenced}
+                            onChange={(value) => setFilters((prev) => ({...prev, commenced: value as CommencedRange | null}))}
+                            clearable
+                            withAlignedLabels
+                        />
+                        <Select
+                            label="Expected closure"
+                            placeholder="Any time"
+                            data={EXPECTED_CLOSURE_OPTIONS}
+                            value={filters.expectedClosure}
+                            onChange={(value) => setFilters((prev) => ({...prev, expectedClosure: value as ExpectedClosureRange | null}))}
+                            clearable
+                            withAlignedLabels
+                        />
                         <Checkbox
                             label="Show all units"
                             checked={expandAll}
                             onChange={(event) => setExpandAll(event.currentTarget.checked)}
-                            mt="xs"
                         />
                     </Stack>
-                </Stack>
+                </AppShell.Section>
             </AppShell.Navbar>
             <AppShell.Main>
                 {error ? (

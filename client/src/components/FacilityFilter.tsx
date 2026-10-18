@@ -19,6 +19,7 @@ const FacilityFilter = ({label, placeholder, data, value, onChange}: FacilityFil
         clearSectionMode="both"
         withAlignedLabels
         hidePickedOptions
+        styles={{pillsList: {maxHeight: 96, overflowY: "auto"}}} // ~3 rows of pills, then scroll
     />
 );
 

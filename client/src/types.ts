@@ -20,15 +20,23 @@ export const FacilityParam = {
     STATUS_ID: "status_id",
     FUELTECH_ID: "fueltech_id",
     NETWORK_REGION: "network_region",
-    SORT: "sort"
+    SORT: "sort",
+    COMMENCED: "commenced",
+    EXPECTED_CLOSURE: "expected_closure"
 } as const;
 
 export type SortBy = "status" | "commencement" | "closure" | "expectedClosure";
+
+export type CommencedRange = "lastMonth" | "lastQuarter" | "lastYear";
+
+export type ExpectedClosureRange = "noDate" | "nextMonth" | "nextQuarter" | "nextYear";
 
 export type FacilityFilters = {
     statusIds: string[];
     fueltechIds: string[];
     networkRegions: string[];
+    commenced: CommencedRange | null;
+    expectedClosure: ExpectedClosureRange | null;
     sortBy: SortBy | null; // null keeps the API order
 };
 

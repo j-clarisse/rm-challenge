@@ -1,5 +1,7 @@
 import {
     FacilityParam,
+    type CommencedRange,
+    type ExpectedClosureRange,
     type Facility,
     type FacilityFilters,
     type FacilityUnit,
@@ -79,11 +81,64 @@ export const SORT_OPTIONS: FilterOption[] = [
     {value: "expectedClosure", label: "Expected closure date"}
 ];
 
+export const COMMENCED_OPTIONS: FilterOption[] = [
+    {value: "lastMonth", label: "Last month"},
+    {value: "lastQuarter", label: "Last quarter"},
+    {value: "lastYear", label: "Last year"}
+];
+
+export const EXPECTED_CLOSURE_OPTIONS: FilterOption[] = [
+    {value: "noDate", label: "No date"},
+    {value: "nextMonth", label: "Next month"},
+    {value: "nextQuarter", label: "Next quarter"},
+    {value: "nextYear", label: "Next year"}
+];
+
+// Month offset from today for each date range (negative = looking back)
+const RANGE_MONTHS: Record<Exclude<CommencedRange | ExpectedClosureRange, "noDate">, number> = {
+    lastMonth: -1,
+    lastQuarter: -3,
+    lastYear: -12,
+    nextMonth: 1,
+    nextQuarter: 3,
+    nextYear: 12
+};
+
 // Lifecycle order used by the Status sort
 const STATUS_ORDER = ["operating", "commissioning", "committed", "retired"];
 
-function isSortBy(value: string | null): value is SortBy {
-    return SORT_OPTIONS.some((option) => option.value === value);
+// Returns the value if it's one of the options, else null
+function parseOption<T extends string>(value: string | null, options: FilterOption[]): T | null {
+    return options.some((option) => option.value === value) ? value as T : null;
+}
+
+// Expects a UTC-midnight Date (as built by Date.UTC)
+function toIsoDay(date: Date): string {
+    return date.toISOString().slice(0, 10);
+}
+
+// Today's local calendar date; toISOString alone would give the UTC date (yesterday in AU mornings)
+function todayIsoDay(): string {
+    const now = new Date();
+    return toIsoDay(new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())));
+}
+
+function shiftMonths(isoDay: string, months: number): string {
+    const [year, month, day] = isoDay.split("-").map(Number);
+    return toIsoDay(new Date(Date.UTC(year, month - 1 + months, day)));
+}
+
+// Whether a date falls in the rolling window between today and `months` from today (inclusive).
+// Negative months look back, positive months look ahead.
+// Test: last month includes today and the date 1 month ago, excludes the day before;
+//       next year includes today..+12 months; missing value -> false; future date excluded from "last".
+export function withinMonths(value: string | null | undefined, months: number, today = todayIsoDay()): boolean {
+    if (!value) {
+        return false;
+    }
+    const day = value.slice(0, 10);
+    const edge = shiftMonths(today, months);
+    return months < 0 ? edge <= day && day <= today : today <= day && day <= edge;
 }
 
 // Test: known value -> label (VIC1 -> "VIC", coal_black -> "Coal (Black)"); unknown value -> returned as-is.
@@ -138,27 +193,35 @@ export function parseParams(values: string[]): string[] {
 }
 
 // Reads facility filters from a URL query string (e.g. window.location.search).
-// Test: "" -> empty filters, sortBy null; repeated params; comma lists; unknown params ignored;
-//       unknown sort value -> null.
+// Test: "" -> empty filters, single-value fields null; repeated params; comma lists; unknown params
+//       ignored; unknown sort/commenced/expected_closure values -> null.
 export function getFiltersFromSearch(search: string): FacilityFilters {
     const params = new URLSearchParams(search);
-    const sort = params.get(FacilityParam.SORT);
     return {
         statusIds: parseParams(params.getAll(FacilityParam.STATUS_ID)),
         fueltechIds: parseParams(params.getAll(FacilityParam.FUELTECH_ID)),
         networkRegions: parseParams(params.getAll(FacilityParam.NETWORK_REGION)),
-        sortBy: isSortBy(sort) ? sort : null
+        commenced: parseOption(params.get(FacilityParam.COMMENCED), COMMENCED_OPTIONS),
+        expectedClosure: parseOption(params.get(FacilityParam.EXPECTED_CLOSURE), EXPECTED_CLOSURE_OPTIONS),
+        sortBy: parseOption(params.get(FacilityParam.SORT), SORT_OPTIONS)
     };
 }
 
 // Inverse of getFiltersFromSearch, used to keep the address bar in sync with the filters.
-// Test: empty filters -> ""; all params included, list values repeated; null sort omitted;
+// Test: empty filters -> ""; all params included, list values repeated; null fields omitted;
 //       round trip getFiltersFromSearch(buildSearchFromFilters(f)) deep-equals f.
-export function buildSearchFromFilters({statusIds, fueltechIds, networkRegions, sortBy}: FacilityFilters): string {
+export function buildSearchFromFilters(filters: FacilityFilters): string {
+    const {statusIds, fueltechIds, networkRegions, commenced, expectedClosure, sortBy} = filters;
     const params = new URLSearchParams();
     statusIds.forEach((value) => params.append(FacilityParam.STATUS_ID, value));
     fueltechIds.forEach((value) => params.append(FacilityParam.FUELTECH_ID, value));
     networkRegions.forEach((value) => params.append(FacilityParam.NETWORK_REGION, value));
+    if (commenced) {
+        params.set(FacilityParam.COMMENCED, commenced);
+    }
+    if (expectedClosure) {
+        params.set(FacilityParam.EXPECTED_CLOSURE, expectedClosure);
+    }
     if (sortBy) {
         params.set(FacilityParam.SORT, sortBy);
     }
@@ -166,19 +229,25 @@ export function buildSearchFromFilters({statusIds, fueltechIds, networkRegions, 
     return query ? `?${query}` : "";
 }
 
-function unitMatches(unit: FacilityUnit, {statusIds, fueltechIds}: FacilityFilters): boolean {
+function unitMatches(unit: FacilityUnit, filters: FacilityFilters): boolean {
+    const {statusIds, fueltechIds, commenced, expectedClosure} = filters;
     return (statusIds.length === 0 || statusIds.includes(unit.status_id)) &&
-        (fueltechIds.length === 0 || fueltechIds.includes(unit.fueltech_id));
+        (fueltechIds.length === 0 || fueltechIds.includes(unit.fueltech_id)) &&
+        (!commenced || withinMonths(unit.commencement_date, RANGE_MONTHS[commenced])) &&
+        (!expectedClosure || (expectedClosure === "noDate"
+            ? !unit.expected_closure_date
+            : withinMonths(unit.expected_closure_date, RANGE_MONTHS[expectedClosure])));
 }
 
-// Region matches at facility level; status and fuel tech must match on the same unit.
+// Region matches at facility level; status, fuel tech and dates must all match on the same unit.
 // Units are trimmed to the matching ones (mirrors how the Open Electricity API filters).
 // Test: no filters -> all facilities and all units; region only; status only; fuel tech only;
 //       status + fuel tech on different units -> excluded; returned units are only matching ones;
-//       facility with no units excluded once a unit filter is set.
+//       date filters trim units like status and fuel tech; facility with no units excluded once a
+//       unit filter is set.
 export function filterFacilities(facilities: Facility[], filters: FacilityFilters): Facility[] {
-    const {statusIds, fueltechIds, networkRegions} = filters;
-    const hasUnitFilter = statusIds.length > 0 || fueltechIds.length > 0;
+    const {statusIds, fueltechIds, networkRegions, commenced, expectedClosure} = filters;
+    const hasUnitFilter = statusIds.length > 0 || fueltechIds.length > 0 || Boolean(commenced || expectedClosure);
 
     return facilities.flatMap((facility) => {
         if (networkRegions.length > 0 && !networkRegions.includes(facility.network_region)) {
