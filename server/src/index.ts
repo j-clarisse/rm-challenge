@@ -1,23 +1,32 @@
 import {Hono} from "hono";
 import type {ContentfulStatusCode} from "hono/utils/http-status";
+import {buildFacilitiesUrl, parseParams, readErrorMessage, validateFilters} from "./utils";
+import {
+    FacilityParam,
+    type FacilitiesApiResponse,
+    type FacilitiesResponse,
+    type FacilityFilters
+} from "./types";
 
 interface Env {
     OPEN_ELECTRICITY_API_TOKEN: string;
 }
 
-interface FacilitiesResponse {
-    version: string;
-    created_at: string;
-    success: boolean;
-    error: string | null;
-    data: unknown[];
-    total_records: number | null;
-}
-
 const app = new Hono<{ Bindings: Env }>();
 
 app.get("/api/facilities", async (c) => {
-    const res = await fetch("https://api.openelectricity.org.au/v4/facilities/", {
+    const filters: FacilityFilters = {
+        statusIds: parseParams(c.req.queries(FacilityParam.STATUS_ID)),
+        fueltechGroupIds: parseParams(c.req.queries(FacilityParam.FUELTECH_GROUP_ID)),
+        networkRegion: c.req.query(FacilityParam.NETWORK_REGION)?.trim()
+    };
+
+    const validationError = validateFilters(filters);
+    if (validationError) {
+        return c.json({error: validationError}, 400);
+    }
+
+    const res = await fetch(buildFacilitiesUrl(filters), {
         headers: {
             Authorization: `Bearer ${c.env.OPEN_ELECTRICITY_API_TOKEN}`
         }
@@ -27,13 +36,14 @@ app.get("/api/facilities", async (c) => {
 
     if (!res.ok || !body?.success) {
         return c.json(
-            {error: body?.error ?? "Failed to fetch facilities"},
+            {error: readErrorMessage(body)},
             (res.ok ? 502 : res.status) as ContentfulStatusCode
         );
     }
 
-    return c.json({
-        facilities: body.data
+    return c.json<FacilitiesApiResponse>({
+        facilities: body.data ?? [],
+        total_records: body.total_records ?? body.data?.length ?? 0
     });
 });
 
