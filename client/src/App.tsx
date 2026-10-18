@@ -1,9 +1,12 @@
-import {useEffect} from 'react'
-import {AppShell, Burger, Group, Text, Title} from '@mantine/core'
+import {useEffect, useState} from 'react'
+import {AppShell, Button, Group, Loader, Text, Title} from '@mantine/core'
 import {useDisclosure} from '@mantine/hooks'
+import FacilityList from './components/FacilityList'
+import type {Facility} from './types'
 
 const App = () => {
     const [navOpened, {toggle: toggleNav}] = useDisclosure(true); // Open on initial load
+    const [facilities, setFacilities] = useState<Facility[] | null>(null);
 
     useEffect(() => {
         let abort = false;
@@ -14,7 +17,7 @@ const App = () => {
                 if (abort) {
                     return;
                 }
-                console.log(body.facilities);
+                setFacilities(body.facilities);
             }
         });
 
@@ -38,8 +41,8 @@ const App = () => {
                 <Text size="sm" c="dimmed">Navigation</Text>
             </AppShell.Navbar>
             <AppShell.Main>
-                <Burger opened={navOpened} onClick={toggleNav} size="sm" aria-label="Toggle navigation"/>
-                <Text>Hello world!</Text>
+                <Button variant="default" onClick={toggleNav} mb="md">Filters</Button>
+                {facilities ? <FacilityList facilities={facilities}/> : <Loader/>}
             </AppShell.Main>
         </AppShell>
     )

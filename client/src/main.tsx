@@ -4,7 +4,7 @@ import {MantineProvider} from '@mantine/core'
 import App from './App.tsx'
 
 createRoot(document.getElementById('root')!).render(
-    <MantineProvider defaultColorScheme="auto">
+    <MantineProvider defaultColorScheme="light">
         <App />
     </MantineProvider>
 )
