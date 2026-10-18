@@ -2,6 +2,7 @@ import {
     FacilityParam,
     type CommencedRange,
     type ExpectedClosureRange,
+    type ExpectedOperationRange,
     type Facility,
     type FacilityFilters,
     type FacilityUnit,
@@ -78,7 +79,8 @@ export const SORT_OPTIONS: FilterOption[] = [
     {value: "status", label: "Status"},
     {value: "commencement", label: "Commencement date"},
     {value: "closure", label: "Closure date"},
-    {value: "expectedClosure", label: "Expected closure date"}
+    {value: "expectedClosure", label: "Expected closure date"},
+    {value: "expectedOperation", label: "Expected operation date"}
 ];
 
 export const COMMENCED_OPTIONS: FilterOption[] = [
@@ -94,8 +96,14 @@ export const EXPECTED_CLOSURE_OPTIONS: FilterOption[] = [
     {value: "nextYear", label: "Next year"}
 ];
 
+export const EXPECTED_OPERATION_OPTIONS: FilterOption[] = [
+    {value: "nextMonth", label: "Next month"},
+    {value: "nextQuarter", label: "Next quarter"},
+    {value: "nextYear", label: "Next year"}
+];
+
 // Month offset from today for each date range (negative = looking back)
-const RANGE_MONTHS: Record<Exclude<CommencedRange | ExpectedClosureRange, "noDate">, number> = {
+const RANGE_MONTHS: Record<Exclude<CommencedRange | ExpectedClosureRange | ExpectedOperationRange, "noDate">, number> = {
     lastMonth: -1,
     lastQuarter: -3,
     lastYear: -12,
@@ -210,7 +218,7 @@ export function parseParams(values: string[]): string[] {
 
 // Reads facility filters from a URL query string (e.g. window.location.search).
 // Test: "" -> empty filters, single-value fields null; repeated params; comma lists; unknown params
-//       ignored; unknown sort/commenced/expected_closure values -> null.
+//       ignored; unknown sort/commenced/expected_closure/expected_operation values -> null.
 export function getFiltersFromSearch(search: string): FacilityFilters {
     const params = new URLSearchParams(search);
     return {
@@ -219,6 +227,7 @@ export function getFiltersFromSearch(search: string): FacilityFilters {
         networkRegions: parseParams(params.getAll(FacilityParam.NETWORK_REGION)),
         commenced: parseOption(params.get(FacilityParam.COMMENCED), COMMENCED_OPTIONS),
         expectedClosure: parseOption(params.get(FacilityParam.EXPECTED_CLOSURE), EXPECTED_CLOSURE_OPTIONS),
+        expectedOperation: parseOption(params.get(FacilityParam.EXPECTED_OPERATION), EXPECTED_OPERATION_OPTIONS),
         sortBy: parseOption(params.get(FacilityParam.SORT), SORT_OPTIONS)
     };
 }
@@ -227,7 +236,7 @@ export function getFiltersFromSearch(search: string): FacilityFilters {
 // Test: empty filters -> ""; all params included, list values repeated; null fields omitted;
 //       round trip getFiltersFromSearch(buildSearchFromFilters(f)) deep-equals f.
 export function buildSearchFromFilters(filters: FacilityFilters): string {
-    const {statusIds, fueltechIds, networkRegions, commenced, expectedClosure, sortBy} = filters;
+    const {statusIds, fueltechIds, networkRegions, commenced, expectedClosure, expectedOperation, sortBy} = filters;
     const params = new URLSearchParams();
     statusIds.forEach((value) => params.append(FacilityParam.STATUS_ID, value));
     fueltechIds.forEach((value) => params.append(FacilityParam.FUELTECH_ID, value));
@@ -238,6 +247,9 @@ export function buildSearchFromFilters(filters: FacilityFilters): string {
     if (expectedClosure) {
         params.set(FacilityParam.EXPECTED_CLOSURE, expectedClosure);
     }
+    if (expectedOperation) {
+        params.set(FacilityParam.EXPECTED_OPERATION, expectedOperation);
+    }
     if (sortBy) {
         params.set(FacilityParam.SORT, sortBy);
     }
@@ -246,10 +258,11 @@ export function buildSearchFromFilters(filters: FacilityFilters): string {
 }
 
 function unitMatches(unit: FacilityUnit, filters: FacilityFilters): boolean {
-    const {statusIds, fueltechIds, commenced, expectedClosure} = filters;
+    const {statusIds, fueltechIds, commenced, expectedClosure, expectedOperation} = filters;
     return (statusIds.length === 0 || statusIds.includes(unit.status_id)) &&
         (fueltechIds.length === 0 || fueltechIds.includes(unit.fueltech_id)) &&
         (!commenced || withinMonths(unit.commencement_date, RANGE_MONTHS[commenced])) &&
+        (!expectedOperation || withinMonths(unit.expected_operation_date, RANGE_MONTHS[expectedOperation])) &&
         (!expectedClosure || (expectedClosure === "noDate"
             ? !unit.expected_closure_date
             : withinMonths(unit.expected_closure_date, RANGE_MONTHS[expectedClosure])));
@@ -262,8 +275,9 @@ function unitMatches(unit: FacilityUnit, filters: FacilityFilters): boolean {
 //       date filters trim units like status and fuel tech; facility with no units excluded once a
 //       unit filter is set.
 export function filterFacilities(facilities: Facility[], filters: FacilityFilters): Facility[] {
-    const {statusIds, fueltechIds, networkRegions, commenced, expectedClosure} = filters;
-    const hasUnitFilter = statusIds.length > 0 || fueltechIds.length > 0 || Boolean(commenced || expectedClosure);
+    const {statusIds, fueltechIds, networkRegions, commenced, expectedClosure, expectedOperation} = filters;
+    const hasUnitFilter = statusIds.length > 0 || fueltechIds.length > 0 ||
+        Boolean(commenced || expectedClosure || expectedOperation);
 
     return facilities.flatMap((facility) => {
         if (networkRegions.length > 0 && !networkRegions.includes(facility.network_region)) {
@@ -277,7 +291,7 @@ export function filterFacilities(facilities: Facility[], filters: FacilityFilter
     });
 }
 
-type UnitDateField = "commencement_date" | "closure_date" | "expected_closure_date";
+type UnitDateField = "commencement_date" | "closure_date" | "expected_closure_date" | "expected_operation_date";
 
 // Earliest or latest non-null value of a unit date field (ISO strings compare chronologically).
 function pickDate(units: FacilityUnit[], field: UnitDateField, pick: "earliest" | "latest"): string | null {
@@ -304,7 +318,7 @@ function compareDates(a: string | null, b: string | null, direction: "asc" | "de
 
 // Status: by the facility's most active unit status (lifecycle order).
 // Commencement: earliest commencement, newest first. Closure: latest closure, newest first.
-// Expected closure: earliest expected closure, soonest first. Ties broken by name.
+// Expected closure / expected operation: earliest date, soonest first. Ties broken by name.
 // Test: null sortBy -> same order; each mode orders correctly; mixed-status facility ranks by
 //       its most active status; null dates last in both directions; ties broken by name;
 //       input array not mutated.
@@ -320,7 +334,8 @@ export function sortFacilities(facilities: Facility[], sortBy: SortBy | null): F
         })),
         commencement: pickDate(facility.units, "commencement_date", "earliest"),
         closure: pickDate(facility.units, "closure_date", "latest"),
-        expectedClosure: pickDate(facility.units, "expected_closure_date", "earliest")
+        expectedClosure: pickDate(facility.units, "expected_closure_date", "earliest"),
+        expectedOperation: pickDate(facility.units, "expected_operation_date", "earliest")
     }));
 
     const compare = (a: typeof keyed[number], b: typeof keyed[number]): number => {
@@ -333,6 +348,8 @@ export function sortFacilities(facilities: Facility[], sortBy: SortBy | null): F
                 return compareDates(a.closure, b.closure, "desc");
             case "expectedClosure":
                 return compareDates(a.expectedClosure, b.expectedClosure, "asc");
+            case "expectedOperation":
+                return compareDates(a.expectedOperation, b.expectedOperation, "asc");
         }
     };
 

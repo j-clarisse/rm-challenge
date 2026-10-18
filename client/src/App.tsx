@@ -2,11 +2,12 @@ import {useEffect, useMemo, useState} from 'react';
 import {Alert, AppShell, Button, Checkbox, Group, Loader, ScrollArea, Select, Stack, Title} from '@mantine/core';
 import FacilityFilter from './components/FacilityFilter';
 import FacilityList from './components/FacilityList';
-import type {CommencedRange, ExpectedClosureRange, Facility} from './types';
+import type {CommencedRange, ExpectedClosureRange, ExpectedOperationRange, Facility} from './types';
 import {
     buildSearchFromFilters,
     COMMENCED_OPTIONS,
     EXPECTED_CLOSURE_OPTIONS,
+    EXPECTED_OPERATION_OPTIONS,
     filterFacilities,
     FUELTECH_GROUPED_OPTIONS,
     getFiltersFromSearch,
@@ -114,6 +115,15 @@ const App = () => {
                             data={COMMENCED_OPTIONS}
                             value={filters.commenced}
                             onChange={(value) => setFilters((prev) => ({...prev, commenced: value as CommencedRange | null}))}
+                            clearable
+                            withAlignedLabels
+                        />
+                        <Select
+                            label="Expected operation"
+                            placeholder="Any time"
+                            data={EXPECTED_OPERATION_OPTIONS}
+                            value={filters.expectedOperation}
+                            onChange={(value) => setFilters((prev) => ({...prev, expectedOperation: value as ExpectedOperationRange | null}))}
                             clearable
                             withAlignedLabels
                         />

@@ -87,7 +87,7 @@ const FacilityCard = ({facility, defaultExpanded}: FacilityCardProps) => {
                     onClick={(event) => event.stopPropagation()}
                     style={{cursor: "auto"}}
                 >
-                    <Table.ScrollContainer minWidth={640}>
+                    <Table.ScrollContainer minWidth={740}>
                         <Table fz="xs" striped verticalSpacing={4}>
                             <Table.Thead>
                                 <Table.Tr>
@@ -95,6 +95,7 @@ const FacilityCard = ({facility, defaultExpanded}: FacilityCardProps) => {
                                     <Table.Th>Technology</Table.Th>
                                     <Table.Th>Status</Table.Th>
                                     <Table.Th>Commenced</Table.Th>
+                                    <Table.Th>Expected operation</Table.Th>
                                     <Table.Th>Capacity (Registered)</Table.Th>
                                     <Table.Th>Closure</Table.Th>
                                     <Table.Th>Expected closure</Table.Th>
@@ -107,6 +108,7 @@ const FacilityCard = ({facility, defaultExpanded}: FacilityCardProps) => {
                                         <Table.Td>{getLabel(FUELTECH_OPTIONS, unit.fueltech_id)}</Table.Td>
                                         <Table.Td>{getLabel(STATUS_OPTIONS, unit.status_id)}</Table.Td>
                                         <Table.Td>{formatDate(unit.commencement_date)}</Table.Td>
+                                        <Table.Td>{formatDate(unit.expected_operation_date)}</Table.Td>
                                         <Table.Td>{formatCapacity(unit.capacity_registered)}</Table.Td>
                                         <Table.Td>{formatDate(unit.closure_date)}</Table.Td>
                                         <Table.Td>{formatDate(unit.expected_closure_date)}</Table.Td>

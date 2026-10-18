@@ -6,6 +6,7 @@ export type FacilityUnit = {
     capacity_registered?: number | null;
     closure_date?: string | null;
     expected_closure_date?: string | null;
+    expected_operation_date?: string | null;
 };
 
 export type Facility = {
@@ -22,14 +23,17 @@ export const FacilityParam = {
     NETWORK_REGION: "network_region",
     SORT: "sort",
     COMMENCED: "commenced",
-    EXPECTED_CLOSURE: "expected_closure"
+    EXPECTED_CLOSURE: "expected_closure",
+    EXPECTED_OPERATION: "expected_operation"
 } as const;
 
-export type SortBy = "status" | "commencement" | "closure" | "expectedClosure";
+export type SortBy = "status" | "commencement" | "closure" | "expectedClosure" | "expectedOperation";
 
 export type CommencedRange = "lastMonth" | "lastQuarter" | "lastYear";
 
 export type ExpectedClosureRange = "noDate" | "nextMonth" | "nextQuarter" | "nextYear";
+
+export type ExpectedOperationRange = "nextMonth" | "nextQuarter" | "nextYear";
 
 export type FacilityFilters = {
     statusIds: string[];
@@ -37,6 +41,7 @@ export type FacilityFilters = {
     networkRegions: string[];
     commenced: CommencedRange | null;
     expectedClosure: ExpectedClosureRange | null;
+    expectedOperation: ExpectedOperationRange | null;
     sortBy: SortBy | null; // null keeps the API order
 };
 
