@@ -1,5 +1,5 @@
-import {Card, Text} from '@mantine/core'
-import type {Facility} from '../types'
+import {Card, Text} from '@mantine/core';
+import type {Facility} from '../types';
 
 type FacilityCardProps = {
     facility: Facility;
@@ -12,4 +12,4 @@ const FacilityCard = ({facility}: FacilityCardProps) => (
     </Card>
 );
 
-export default FacilityCard
+export default FacilityCard;

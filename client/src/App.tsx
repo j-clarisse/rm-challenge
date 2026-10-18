@@ -1,8 +1,8 @@
-import {useEffect, useState} from 'react'
-import {AppShell, Button, Group, Loader, Text, Title} from '@mantine/core'
-import {useDisclosure} from '@mantine/hooks'
-import FacilityList from './components/FacilityList'
-import type {Facility} from './types'
+import {useEffect, useState} from 'react';
+import {AppShell, Button, Group, Loader, Text, Title} from '@mantine/core';
+import {useDisclosure} from '@mantine/hooks';
+import FacilityList from './components/FacilityList';
+import type {Facility} from './types';
 
 const App = () => {
     const [navOpened, {toggle: toggleNav}] = useDisclosure(true); // Open on initial load
@@ -23,7 +23,7 @@ const App = () => {
 
         return () => {
             abort = true;
-        }
+        };
     }, []);
 
     return (
@@ -45,7 +45,7 @@ const App = () => {
                 {facilities ? <FacilityList facilities={facilities}/> : <Loader/>}
             </AppShell.Main>
         </AppShell>
-    )
-}
+    );
+};
 
-export default App
+export default App;

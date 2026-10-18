@@ -1,6 +1,6 @@
-import {Stack, Text} from '@mantine/core'
-import type {Facility} from '../types'
-import FacilityCard from './FacilityCard'
+import {Stack, Text} from '@mantine/core';
+import type {Facility} from '../types';
+import FacilityCard from './FacilityCard';
 
 type FacilityListProps = {
     facilities: Facility[];
@@ -15,4 +15,4 @@ const FacilityList = ({facilities}: FacilityListProps) => (
     </Stack>
 );
 
-export default FacilityList
+export default FacilityList;
