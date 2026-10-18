@@ -8,9 +8,10 @@ const PAGE_SIZE = 50;
 
 type FacilityListProps = {
     facilities: Facility[];
+    expandAll: boolean;
 };
 
-const FacilityList = ({facilities}: FacilityListProps) => {
+const FacilityList = ({facilities, expandAll}: FacilityListProps) => {
     const [page, setPage] = useState(1);
     const totalPages = Math.ceil(facilities.length / PAGE_SIZE);
 
@@ -26,7 +27,8 @@ const FacilityList = ({facilities}: FacilityListProps) => {
                 <Pagination total={totalPages} value={page} onChange={handlePageChange} size="sm" hideWithOnePage/>
             </Group>
             {paginate(facilities, page, PAGE_SIZE).map((facility) => (
-                <FacilityCard key={facility.code} facility={facility}/>
+                // Key includes expandAll so toggling it remounts cards with the new default
+                <FacilityCard key={`${facility.code}-${expandAll}`} facility={facility} defaultExpanded={expandAll}/>
             ))}
         </Stack>
     );

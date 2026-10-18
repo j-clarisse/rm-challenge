@@ -1,4 +1,5 @@
-import {Badge, Card, Group, Stack, Table, Text} from '@mantine/core';
+import {useState} from 'react';
+import {AccordionChevron, Badge, Card, Group, Stack, Table, Text} from '@mantine/core';
 import type {Facility} from '../types';
 import {
     formatDate,
@@ -12,56 +13,99 @@ import {
 
 type FacilityCardProps = {
     facility: Facility;
+    defaultExpanded: boolean;
 };
 
-const FacilityCard = ({facility}: FacilityCardProps) => {
+const FacilityCard = ({facility, defaultExpanded}: FacilityCardProps) => {
+    const [expanded, setExpanded] = useState(defaultExpanded);
     const {statusIds, fueltechIds, earliestCommencement} = summariseUnits(facility.units);
+    const unitCount = facility.units.length;
+
+    const toggleExpanded = () => setExpanded((prev) => !prev);
 
     return (
-        <Card withBorder padding="sm">
-            <Stack gap="xs">
-                <Group justify="space-between" wrap="nowrap">
-                    <Text fw={600}>{facility.name}</Text>
-                    <Badge variant="light">{getLabel(NETWORK_REGION_OPTIONS, facility.network_region)}</Badge>
-                </Group>
-                <Group gap={4}>
-                    {statusIds.map((statusId) => (
-                        <Badge key={statusId} variant="light" color={STATUS_COLOURS[statusId]}>
-                            {getLabel(STATUS_OPTIONS, statusId)}
-                        </Badge>
-                    ))}
-                    {fueltechIds.map((fueltechId) => (
-                        <Badge key={fueltechId} variant="outline" color="gray">
-                            {getLabel(FUELTECH_OPTIONS, fueltechId)}
-                        </Badge>
-                    ))}
-                </Group>
-                {earliestCommencement && (
-                    <Text size="sm" c="dimmed">Since {formatDate(earliestCommencement)}</Text>
-                )}
-                <Table.ScrollContainer minWidth={360}>
-                    <Table fz="xs" striped verticalSpacing={4}>
-                        <Table.Thead>
-                            <Table.Tr>
-                                <Table.Th>Unit</Table.Th>
-                                <Table.Th>Technology</Table.Th>
-                                <Table.Th>Status</Table.Th>
-                                <Table.Th>Commenced</Table.Th>
-                            </Table.Tr>
-                        </Table.Thead>
-                        <Table.Tbody>
-                            {facility.units.map((unit) => (
-                                <Table.Tr key={unit.code}>
-                                    <Table.Td>{unit.code}</Table.Td>
-                                    <Table.Td>{getLabel(FUELTECH_OPTIONS, unit.fueltech_id)}</Table.Td>
-                                    <Table.Td>{getLabel(STATUS_OPTIONS, unit.status_id)}</Table.Td>
-                                    <Table.Td>{formatDate(unit.commencement_date)}</Table.Td>
-                                </Table.Tr>
+        // Whole card toggles the units section
+        <Card
+            withBorder
+            padding="sm"
+            role="button"
+            tabIndex={0}
+            aria-expanded={expanded}
+            onClick={toggleExpanded}
+            onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    toggleExpanded();
+                }
+            }}
+            style={{cursor: "pointer"}}
+        >
+            <Card.Section inheritPadding py="sm">
+                <Stack gap="xs">
+                    <Group justify="space-between" wrap="nowrap" align="flex-start">
+                        <Group gap="xs" wrap="nowrap">
+                            <Text fw={600}>{facility.name}</Text>
+                            <Badge variant="light">{getLabel(NETWORK_REGION_OPTIONS, facility.network_region)}</Badge>
+                        </Group>
+                        <Group gap={4} justify="flex-end">
+                            {statusIds.map((statusId) => (
+                                <Badge key={statusId} variant="light" color={STATUS_COLOURS[statusId]}>
+                                    {getLabel(STATUS_OPTIONS, statusId)}
+                                </Badge>
                             ))}
-                        </Table.Tbody>
-                    </Table>
-                </Table.ScrollContainer>
-            </Stack>
+                        </Group>
+                    </Group>
+                    <Group gap={4}>
+                        {fueltechIds.map((fueltechId) => (
+                            <Badge key={fueltechId} variant="outline" color="gray">
+                                {getLabel(FUELTECH_OPTIONS, fueltechId)}
+                            </Badge>
+                        ))}
+                    </Group>
+                    {earliestCommencement && (
+                        <Text size="sm" c="dimmed">Since {formatDate(earliestCommencement)}</Text>
+                    )}
+                </Stack>
+            </Card.Section>
+            <Card.Section withBorder inheritPadding py="xs">
+                <Group justify="space-between">
+                    <Text size="sm" c="dimmed">{unitCount} unit{unitCount === 1 ? "" : "s"}</Text>
+                    <AccordionChevron style={{transform: expanded ? "rotate(180deg)" : undefined}}/>
+                </Group>
+            </Card.Section>
+            {expanded && (
+                // Stop clicks here so selecting table text doesn't collapse the card
+                <Card.Section
+                    withBorder
+                    inheritPadding
+                    py="xs"
+                    onClick={(event) => event.stopPropagation()}
+                    style={{cursor: "auto"}}
+                >
+                    <Table.ScrollContainer minWidth={360}>
+                        <Table fz="xs" striped verticalSpacing={4}>
+                            <Table.Thead>
+                                <Table.Tr>
+                                    <Table.Th>Unit</Table.Th>
+                                    <Table.Th>Technology</Table.Th>
+                                    <Table.Th>Status</Table.Th>
+                                    <Table.Th>Commenced</Table.Th>
+                                </Table.Tr>
+                            </Table.Thead>
+                            <Table.Tbody>
+                                {facility.units.map((unit) => (
+                                    <Table.Tr key={unit.code}>
+                                        <Table.Td>{unit.code}</Table.Td>
+                                        <Table.Td>{getLabel(FUELTECH_OPTIONS, unit.fueltech_id)}</Table.Td>
+                                        <Table.Td>{getLabel(STATUS_OPTIONS, unit.status_id)}</Table.Td>
+                                        <Table.Td>{formatDate(unit.commencement_date)}</Table.Td>
+                                    </Table.Tr>
+                                ))}
+                            </Table.Tbody>
+                        </Table>
+                    </Table.ScrollContainer>
+                </Card.Section>
+            )}
         </Card>
     );
 };

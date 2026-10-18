@@ -1,5 +1,5 @@
 import {useEffect, useMemo, useState} from 'react';
-import {Alert, AppShell, Button, Group, Loader, Stack, Title} from '@mantine/core';
+import {Alert, AppShell, Button, Checkbox, Group, Loader, Stack, Title} from '@mantine/core';
 import FacilityFilter from './components/FacilityFilter';
 import FacilityList from './components/FacilityList';
 import type {Facility} from './types';
@@ -18,6 +18,7 @@ const App = () => {
     const [filters, setFilters] = useState(() => getFiltersFromSearch(window.location.search));
     const [facilities, setFacilities] = useState<Facility[] | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [expandAll, setExpandAll] = useState(false);
 
     // Fetch every facility once; all filtering happens client-side
     useEffect(() => {
@@ -101,6 +102,12 @@ const App = () => {
                                 Non-renewables
                             </Button>
                         </Group>
+                        <Checkbox
+                            label="Show all units"
+                            checked={expandAll}
+                            onChange={(event) => setExpandAll(event.currentTarget.checked)}
+                            mt="xs"
+                        />
                     </Stack>
                 </Stack>
             </AppShell.Navbar>
@@ -109,7 +116,7 @@ const App = () => {
                     <Alert color="red" title="Couldn't load facilities">{error}</Alert>
                 ) : visibleFacilities ? (
                     // Remount on filter change so pagination resets to page 1
-                    <FacilityList key={buildSearchFromFilters(filters)} facilities={visibleFacilities}/>
+                    <FacilityList key={buildSearchFromFilters(filters)} facilities={visibleFacilities} expandAll={expandAll}/>
                 ) : (
                     <Loader/>
                 )}
