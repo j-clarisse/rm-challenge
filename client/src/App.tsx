@@ -22,6 +22,7 @@ const App = () => {
     const [facilities, setFacilities] = useState<Facility[] | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [expandAll, setExpandAll] = useState(false);
+    const [showTotalCapacity, setShowTotalCapacity] = useState(false);
 
     // Fetch every facility once; all filtering happens client-side
     useEffect(() => {
@@ -130,6 +131,11 @@ const App = () => {
                             checked={expandAll}
                             onChange={(event) => setExpandAll(event.currentTarget.checked)}
                         />
+                        <Checkbox
+                            label="Show total capacity"
+                            checked={showTotalCapacity}
+                            onChange={(event) => setShowTotalCapacity(event.currentTarget.checked)}
+                        />
                     </Stack>
                 </AppShell.Section>
             </AppShell.Navbar>
@@ -142,6 +148,7 @@ const App = () => {
                         key={buildSearchFromFilters(filters)}
                         facilities={visibleFacilities}
                         expandAll={expandAll}
+                        showTotalCapacity={showTotalCapacity}
                         sortBy={filters.sortBy}
                         onSortChange={(sortBy) => setFilters((prev) => ({...prev, sortBy}))}
                     />

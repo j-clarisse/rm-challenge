@@ -1,7 +1,7 @@
 import {useState} from 'react';
-import {Group, Pagination, Select, Stack, Text} from '@mantine/core';
+import {Divider, Group, Pagination, Select, Stack, Text} from '@mantine/core';
 import type {Facility, SortBy} from '../types';
-import {paginate, SORT_OPTIONS} from '../utils';
+import {formatCapacity, paginate, SORT_OPTIONS, sumCapacity} from '../utils';
 import FacilityCard from './FacilityCard';
 
 const PAGE_SIZE = 50;
@@ -9,11 +9,12 @@ const PAGE_SIZE = 50;
 type FacilityListProps = {
     facilities: Facility[];
     expandAll: boolean;
+    showTotalCapacity: boolean;
     sortBy: SortBy | null;
     onSortChange: (sortBy: SortBy | null) => void;
 };
 
-const FacilityList = ({facilities, expandAll, sortBy, onSortChange}: FacilityListProps) => {
+const FacilityList = ({facilities, expandAll, showTotalCapacity, sortBy, onSortChange}: FacilityListProps) => {
     const [page, setPage] = useState(1);
     const totalPages = Math.ceil(facilities.length / PAGE_SIZE);
 
@@ -25,7 +26,15 @@ const FacilityList = ({facilities, expandAll, sortBy, onSortChange}: FacilityLis
     return (
         <Stack gap="sm">
             <Group justify="space-between">
-                <Text fw={500}>{facilities.length} facilities</Text>
+                <Group gap="xs">
+                    <Text fw={500}>{facilities.length} facilities</Text>
+                    {showTotalCapacity && (
+                        <>
+                            <Divider orientation="vertical"/>
+                            <Text fw={500}>Total capacity: {formatCapacity(sumCapacity(facilities))}</Text>
+                        </>
+                    )}
+                </Group>
                 <Group gap="sm">
                     <Select
                         data={SORT_OPTIONS}

@@ -167,18 +167,34 @@ export function formatCapacity(mw: number | null | undefined): string {
     return `${mw.toLocaleString("en-AU", {maximumFractionDigits: 1})} MW`;
 }
 
+// Charge/discharge units duplicate the parent battery's capacity
+const BATTERY_DIRECTION_FUELTECHS = ["battery_charging", "battery_discharging"];
+
 // Rolls unit details up to facility level for the card summary.
 // Test: statuses/fuel techs de-duplicated in first-seen order; earliest date chosen;
-//       no dates -> earliestCommencement null.
+//       no dates -> earliestCommencement null; capacity sums capacity_registered, skips
+//       battery_charging/battery_discharging, ignores nulls; all null -> totalCapacity null;
+//       Adelaide Desalination's units -> 34.2.
 export function summariseUnits(units: FacilityUnit[]) {
     const dates = units
         .map((unit) => unit.commencement_date)
         .filter((date): date is string => Boolean(date))
         .sort();
+
+    // ASSUMPTION: a facility's total capacity is the sum of its units' capacity_registered.
+    // battery_charging/battery_discharging units are skipped because they repeat the capacity of
+    // their parent "battery" unit (e.g. Adelaide Desalination lists 7.76 MW on all three).
+    // Units without a registered capacity are ignored; null if none have one.
+    const capacities = units
+        .filter((unit) => !BATTERY_DIRECTION_FUELTECHS.includes(unit.fueltech_id))
+        .map((unit) => unit.capacity_registered)
+        .filter((capacity): capacity is number => capacity != null);
+
     return {
         statusIds: [...new Set(units.map((unit) => unit.status_id))],
         fueltechIds: [...new Set(units.map((unit) => unit.fueltech_id))],
-        earliestCommencement: dates[0] ?? null
+        earliestCommencement: dates[0] ?? null,
+        totalCapacity: capacities.length > 0 ? capacities.reduce((sum, capacity) => sum + capacity, 0) : null
     };
 }
 
@@ -323,6 +339,15 @@ export function sortFacilities(facilities: Facility[], sortBy: SortBy | null): F
     keyed.sort((a, b) => compare(a, b) || a.facility.name.localeCompare(b.facility.name));
 
     return keyed.map(({facility}) => facility);
+}
+
+// Sum of each facility's total capacity (same assumption as summariseUnits); null if none have one.
+// Test: sums facility totals; facilities without capacity ignored; empty list / all null -> null.
+export function sumCapacity(facilities: Facility[]): number | null {
+    const totals = facilities
+        .map((facility) => summariseUnits(facility.units).totalCapacity)
+        .filter((total): total is number => total != null);
+    return totals.length > 0 ? totals.reduce((sum, total) => sum + total, 0) : null;
 }
 
 // Test: page 1 -> first `size` items; last page returns the remainder; page past the end -> [];

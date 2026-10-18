@@ -1,5 +1,5 @@
 import {useState} from 'react';
-import {AccordionChevron, Badge, Card, Group, Stack, Table, Text} from '@mantine/core';
+import {AccordionChevron, Badge, Card, Divider, Group, Stack, Table, Text} from '@mantine/core';
 import type {Facility} from '../types';
 import {
     formatCapacity,
@@ -19,7 +19,7 @@ type FacilityCardProps = {
 
 const FacilityCard = ({facility, defaultExpanded}: FacilityCardProps) => {
     const [expanded, setExpanded] = useState(defaultExpanded);
-    const {statusIds, fueltechIds, earliestCommencement} = summariseUnits(facility.units);
+    const {statusIds, fueltechIds, earliestCommencement, totalCapacity} = summariseUnits(facility.units);
     const unitCount = facility.units.length;
 
     const toggleExpanded = () => setExpanded((prev) => !prev);
@@ -70,7 +70,11 @@ const FacilityCard = ({facility, defaultExpanded}: FacilityCardProps) => {
             </Card.Section>
             <Card.Section withBorder inheritPadding py="xs">
                 <Group justify="space-between">
-                    <Text size="sm" c="dimmed">{unitCount} unit{unitCount === 1 ? "" : "s"}</Text>
+                    <Group gap="xs">
+                        <Text size="sm" c="dimmed">{unitCount} unit{unitCount === 1 ? "" : "s"}</Text>
+                        <Divider orientation="vertical"/>
+                        <Text size="sm" c="dimmed">Capacity (registered): {formatCapacity(totalCapacity)}</Text>
+                    </Group>
                     <AccordionChevron style={{transform: expanded ? "rotate(180deg)" : undefined}}/>
                 </Group>
             </Card.Section>
