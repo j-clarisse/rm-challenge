@@ -28,3 +28,7 @@ export type FilterOption = {
     value: string;
     label: string;
 };
+
+export type FueltechOption = FilterOption & {
+    renewable: boolean;
+};

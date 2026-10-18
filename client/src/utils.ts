@@ -1,4 +1,10 @@
-import {FacilityParam, type Facility, type FacilityFilters, type FilterOption} from './types';
+import {
+    FacilityParam,
+    type Facility,
+    type FacilityFilters,
+    type FilterOption,
+    type FueltechOption
+} from './types';
 
 export const STATUS_OPTIONS: FilterOption[] = [
     {value: "committed", label: "Committed"},
@@ -8,33 +14,44 @@ export const STATUS_OPTIONS: FilterOption[] = [
 ];
 
 // From https://docs.openelectricity.org.au/guides/fueltechs/#fueltechs
-export const FUELTECH_OPTIONS: FilterOption[] = [
-    {value: "battery_charging", label: "Battery (Charging)"},
-    {value: "battery_discharging", label: "Battery (Discharging)"},
-    {value: "bioenergy_biogas", label: "Biogas"},
-    {value: "bioenergy_biomass", label: "Biomass"},
-    {value: "coal_black", label: "Coal (Black)"},
-    {value: "coal_brown", label: "Coal (Brown)"},
-    {value: "distillate", label: "Distillate"},
-    {value: "gas_ccgt", label: "Gas (CCGT)"},
-    {value: "gas_ocgt", label: "Gas (OCGT)"},
-    {value: "gas_recip", label: "Gas (Reciprocating)"},
-    {value: "gas_steam", label: "Gas (Steam)"},
-    {value: "gas_wcmg", label: "Gas (Coal Mine Waste)"},
-    {value: "hydro", label: "Hydro"},
-    {value: "pumps", label: "Pumps"},
-    {value: "solar_rooftop", label: "Solar (Rooftop)"},
-    {value: "solar_thermal", label: "Solar (Thermal)"},
-    {value: "solar_utility", label: "Solar (Utility)"},
-    {value: "wind", label: "Wind"},
-    {value: "wind_offshore", label: "Offshore Wind"},
-    {value: "aggregator_vpp", label: "Aggregator (VPP)"},
-    {value: "aggregator_dr", label: "Aggregator (DR)"},
-    {value: "nuclear", label: "Nuclear"},
-    {value: "imports", label: "Network Import"},
-    {value: "exports", label: "Network Export"},
-    {value: "interconnector", label: "Interconnector"},
-    {value: "battery", label: "Battery"}
+export const FUELTECH_OPTIONS: FueltechOption[] = [
+    {value: "battery_charging", label: "Battery (Charging)", renewable: false},
+    {value: "battery_discharging", label: "Battery (Discharging)", renewable: false},
+    {value: "bioenergy_biogas", label: "Biogas", renewable: true},
+    {value: "bioenergy_biomass", label: "Biomass", renewable: true},
+    {value: "coal_black", label: "Coal (Black)", renewable: false},
+    {value: "coal_brown", label: "Coal (Brown)", renewable: false},
+    {value: "distillate", label: "Distillate", renewable: false},
+    {value: "gas_ccgt", label: "Gas (CCGT)", renewable: false},
+    {value: "gas_ocgt", label: "Gas (OCGT)", renewable: false},
+    {value: "gas_recip", label: "Gas (Reciprocating)", renewable: false},
+    {value: "gas_steam", label: "Gas (Steam)", renewable: false},
+    {value: "gas_wcmg", label: "Gas (Coal Mine Waste)", renewable: false},
+    {value: "hydro", label: "Hydro", renewable: true},
+    {value: "pumps", label: "Pumps", renewable: false},
+    {value: "solar_rooftop", label: "Solar (Rooftop)", renewable: true},
+    {value: "solar_thermal", label: "Solar (Thermal)", renewable: true},
+    {value: "solar_utility", label: "Solar (Utility)", renewable: true},
+    {value: "wind", label: "Wind", renewable: true},
+    {value: "wind_offshore", label: "Offshore Wind", renewable: true},
+    {value: "aggregator_vpp", label: "Aggregator (VPP)", renewable: true},
+    {value: "aggregator_dr", label: "Aggregator (DR)", renewable: true},
+    {value: "nuclear", label: "Nuclear", renewable: false},
+    {value: "imports", label: "Network Import", renewable: false},
+    {value: "exports", label: "Network Export", renewable: false},
+    {value: "interconnector", label: "Interconnector", renewable: false},
+    {value: "battery", label: "Battery", renewable: false}
+];
+
+// Test: renewable + non-renewable ids cover all FUELTECH_OPTIONS with no overlap;
+//       renewable list matches the 10 renewable fueltechs in the docs table.
+export const RENEWABLE_FUELTECH_IDS = FUELTECH_OPTIONS.filter((option) => option.renewable).map((option) => option.value);
+export const NON_RENEWABLE_FUELTECH_IDS = FUELTECH_OPTIONS.filter((option) => !option.renewable).map((option) => option.value);
+
+// Grouped for the Fuel tech MultiSelect dropdown
+export const FUELTECH_GROUPED_OPTIONS = [
+    {group: "Renewable", items: FUELTECH_OPTIONS.filter((option) => option.renewable)},
+    {group: "Non-renewable", items: FUELTECH_OPTIONS.filter((option) => !option.renewable)}
 ];
 
 export const NETWORK_REGION_OPTIONS: FilterOption[] = [
@@ -45,6 +62,11 @@ export const NETWORK_REGION_OPTIONS: FilterOption[] = [
     {value: "VIC1", label: "VIC"},
     {value: "WEM", label: "WA"}
 ];
+
+// Test: known code -> label (VIC1 -> "VIC", WEM -> "WA"); unknown code -> returned as-is.
+export function getRegionLabel(code: string): string {
+    return NETWORK_REGION_OPTIONS.find((option) => option.value === code)?.label ?? code;
+}
 
 // Accepts both repeated params (?a=x&a=y) and comma lists (?a=x,y).
 // Test: [] -> []; repeated values; comma list; repeated + comma combined;

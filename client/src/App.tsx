@@ -1,14 +1,18 @@
 import {useEffect, useMemo, useState} from 'react';
-import {Alert, AppShell, Button, Group, Loader, MultiSelect, Stack, Title} from '@mantine/core';
+import {Alert, AppShell, Button, Group, Loader, Stack, Title} from '@mantine/core';
 import {useDisclosure} from '@mantine/hooks';
+import {FunnelIcon} from '@phosphor-icons/react';
+import FacilityFilter from './components/FacilityFilter';
 import FacilityList from './components/FacilityList';
 import type {Facility} from './types';
 import {
     buildSearchFromFilters,
     filterFacilities,
-    FUELTECH_OPTIONS,
+    FUELTECH_GROUPED_OPTIONS,
     getFiltersFromSearch,
     NETWORK_REGION_OPTIONS,
+    NON_RENEWABLE_FUELTECH_IDS,
+    RENEWABLE_FUELTECH_IDS,
     STATUS_OPTIONS
 } from './utils';
 
@@ -62,44 +66,57 @@ const App = () => {
             </AppShell.Header>
             <AppShell.Navbar p="md">
                 <Stack gap="md">
-                    <MultiSelect
-                        label="Status"
-                        placeholder="Any status"
-                        data={STATUS_OPTIONS}
-                        value={filters.statusIds}
-                        onChange={(statusIds) => setFilters((prev) => ({...prev, statusIds}))}
-                        clearable
-                        clearSectionMode="both"
-                        withAlignedLabels
-                        hidePickedOptions
-                    />
-                    <MultiSelect
-                        label="Fuel tech"
-                        placeholder="Any fuel tech"
-                        data={FUELTECH_OPTIONS}
-                        value={filters.fueltechIds}
-                        onChange={(fueltechIds) => setFilters((prev) => ({...prev, fueltechIds}))}
-                        searchable
-                        clearable
-                        clearSectionMode="both"
-                        withAlignedLabels
-                        hidePickedOptions
-                    />
-                    <MultiSelect
+                    <FacilityFilter
                         label="Region"
-                        placeholder="Any region"
+                        placeholder="All regions"
                         data={NETWORK_REGION_OPTIONS}
                         value={filters.networkRegions}
                         onChange={(networkRegions) => setFilters((prev) => ({...prev, networkRegions}))}
-                        clearable
-                        clearSectionMode="both"
-                        withAlignedLabels
-                        hidePickedOptions
                     />
+                    <FacilityFilter
+                        label="Status"
+                        placeholder="All statuses"
+                        data={STATUS_OPTIONS}
+                        value={filters.statusIds}
+                        onChange={(statusIds) => setFilters((prev) => ({...prev, statusIds}))}
+                    />
+                    <Stack gap={6}>
+                        <FacilityFilter
+                            label="Fuel tech"
+                            placeholder="All fuel techs"
+                            data={FUELTECH_GROUPED_OPTIONS}
+                            value={filters.fueltechIds}
+                            onChange={(fueltechIds) => setFilters((prev) => ({...prev, fueltechIds}))}
+                        />
+                        <Group gap="xs">
+                            <Button
+                                size="compact-xs"
+                                variant="light"
+                                onClick={() => setFilters((prev) => ({...prev, fueltechIds: RENEWABLE_FUELTECH_IDS}))}
+                            >
+                                Renewables
+                            </Button>
+                            <Button
+                                size="compact-xs"
+                                variant="light"
+                                onClick={() => setFilters((prev) => ({...prev, fueltechIds: NON_RENEWABLE_FUELTECH_IDS}))}
+                            >
+                                Non-renewables
+                            </Button>
+                        </Group>
+                    </Stack>
                 </Stack>
             </AppShell.Navbar>
             <AppShell.Main>
-                <Button variant="default" onClick={toggleNav} mb="md">Filters</Button>
+                <Button
+                    variant={navOpened ? "default" : "light"}
+                    onClick={toggleNav}
+                    mb="md"
+                    leftSection={<FunnelIcon size={16}/>}
+                    aria-pressed={navOpened}
+                >
+                    Filters
+                </Button>
                 {error ? (
                     <Alert color="red" title="Couldn't load facilities">{error}</Alert>
                 ) : visibleFacilities ? (

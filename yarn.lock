@@ -1161,6 +1161,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@phosphor-icons/react@npm:^2.1.10":
+  version: 2.1.10
+  resolution: "@phosphor-icons/react@npm:2.1.10"
+  peerDependencies:
+    react: ">= 16.8"
+    react-dom: ">= 16.8"
+  checksum: ed74ce87ec2b7dd6be54d6820671d4027888e784c1b2d2d90cfcc304501a562461502f014b770fc5524d207737af50402fe7dda7827922137d4d08cf7cfa9fb1
+  languageName: node
+  linkType: hard
+
 "@pkgjs/parseargs@npm:^0.11.0":
   version: 0.11.0
   resolution: "@pkgjs/parseargs@npm:0.11.0"
@@ -1668,6 +1678,7 @@ __metadata:
   dependencies:
     "@mantine/core": ^9.7.3
     "@mantine/hooks": ^9.7.3
+    "@phosphor-icons/react": ^2.1.10
     "@types/react": ^19.2.0
     "@types/react-dom": ^19.2.0
     "@vitejs/plugin-react": ^4.5.2
