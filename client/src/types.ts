@@ -29,19 +29,17 @@ export const FacilityParam = {
 
 export type SortBy = "status" | "commencement" | "closure" | "expectedClosure" | "expectedOperation";
 
-export type CommencedRange = "lastMonth" | "lastQuarter" | "lastYear";
+export type PastDateRangeOptions = "lastMonth" | "lastQuarter" | "lastYear";
 
-export type ExpectedClosureRange = "noDate" | "nextMonth" | "nextQuarter" | "nextYear";
-
-export type ExpectedOperationRange = "nextMonth" | "nextQuarter" | "nextYear";
+export type FutureDateRangeOptions = "nextMonth" | "nextQuarter" | "nextYear";
 
 export type FacilityFilters = {
     statusIds: string[];
     fueltechIds: string[];
     networkRegions: string[];
-    commenced: CommencedRange | null;
-    expectedClosure: ExpectedClosureRange | null;
-    expectedOperation: ExpectedOperationRange | null;
+    commenced: PastDateRangeOptions | null;
+    expectedClosure: FutureDateRangeOptions | null;
+    expectedOperation: FutureDateRangeOptions | null;
     sortBy: SortBy | null; // null keeps the API order
 };
 
@@ -50,6 +48,7 @@ export type FilterOption = {
     label: string;
 };
 
+// Add renewable attribute to fuel techs to enable presets
 export type FueltechOption = FilterOption & {
     renewable: boolean;
 };

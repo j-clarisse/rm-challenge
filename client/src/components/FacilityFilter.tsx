@@ -11,7 +11,7 @@ type FacilityFilterProps = {
 const FacilityFilter = ({label, placeholder, data, value, onChange}: FacilityFilterProps) => (
     <MultiSelect
         label={label}
-        placeholder={value.length === 0 ? placeholder : undefined} // Mantine shows the placeholder even with selections
+        placeholder={value.length === 0 ? placeholder : undefined}
         data={data}
         value={value}
         onChange={onChange}

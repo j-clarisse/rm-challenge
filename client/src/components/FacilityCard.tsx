@@ -7,18 +7,24 @@ import {
     FUELTECH_OPTIONS,
     getLabel,
     NETWORK_REGION_OPTIONS,
-    STATUS_COLOURS,
     STATUS_OPTIONS,
     summariseUnits
 } from '../utils';
 
 type FacilityCardProps = {
     facility: Facility;
-    defaultExpanded: boolean;
+    showUnits: boolean;
 };
 
-const FacilityCard = ({facility, defaultExpanded}: FacilityCardProps) => {
-    const [expanded, setExpanded] = useState(defaultExpanded);
+const STATUS_COLOUR_MAP: Record<string, string> = {
+    operating: "green",
+    commissioning: "yellow",
+    committed: "blue",
+    retired: "gray"
+};
+
+const FacilityCard = ({facility, showUnits}: FacilityCardProps) => {
+    const [expanded, setExpanded] = useState(showUnits);
     const {statusIds, fueltechIds, earliestCommencement, totalCapacity} = summariseUnits(facility.units);
     const unitCount = facility.units.length;
 
@@ -33,12 +39,6 @@ const FacilityCard = ({facility, defaultExpanded}: FacilityCardProps) => {
             tabIndex={0}
             aria-expanded={expanded}
             onClick={toggleExpanded}
-            onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    toggleExpanded();
-                }
-            }}
             style={{cursor: "pointer"}}
         >
             <Card.Section inheritPadding py="sm">
@@ -53,7 +53,7 @@ const FacilityCard = ({facility, defaultExpanded}: FacilityCardProps) => {
                         </Group>
                         <Group gap={4} justify="flex-end">
                             {statusIds.map((statusId) => (
-                                <Badge key={statusId} variant="light" color={STATUS_COLOURS[statusId]}>
+                                <Badge key={statusId} variant="light" color={STATUS_COLOUR_MAP[statusId]}>
                                     {getLabel(STATUS_OPTIONS, statusId)}
                                 </Badge>
                             ))}
@@ -79,16 +79,15 @@ const FacilityCard = ({facility, defaultExpanded}: FacilityCardProps) => {
                 </Group>
             </Card.Section>
             {expanded && (
-                // Stop clicks here so selecting table text doesn't collapse the card
                 <Card.Section
                     withBorder
                     inheritPadding
                     py="xs"
-                    onClick={(event) => event.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
                     style={{cursor: "auto"}}
                 >
                     <Table.ScrollContainer minWidth={740}>
-                        <Table fz="xs" striped verticalSpacing={4}>
+                        <Table fz="xs" verticalSpacing={4}>
                             <Table.Thead>
                                 <Table.Tr>
                                     <Table.Th>Unit</Table.Th>

@@ -1,8 +1,8 @@
+import {addMonths, format, isWithinInterval, parseISO, startOfToday} from 'date-fns';
 import {
     FacilityParam,
-    type CommencedRange,
-    type ExpectedClosureRange,
-    type ExpectedOperationRange,
+    type PastDateRangeOptions,
+    type FutureDateRangeOptions,
     type Facility,
     type FacilityFilters,
     type FacilityUnit,
@@ -48,11 +48,6 @@ export const FUELTECH_OPTIONS: FueltechOption[] = [
     {value: "battery", label: "Battery", renewable: false}
 ];
 
-// Test: renewable + non-renewable ids cover all FUELTECH_OPTIONS with no overlap;
-//       renewable list matches the 10 renewable fueltechs in the docs table.
-export const RENEWABLE_FUELTECH_IDS = FUELTECH_OPTIONS.filter((option) => option.renewable).map((option) => option.value);
-export const NON_RENEWABLE_FUELTECH_IDS = FUELTECH_OPTIONS.filter((option) => !option.renewable).map((option) => option.value);
-
 // Grouped for the Fuel tech MultiSelect dropdown
 export const FUELTECH_GROUPED_OPTIONS = [
     {group: "Renewable", items: FUELTECH_OPTIONS.filter((option) => option.renewable)},
@@ -68,13 +63,6 @@ export const NETWORK_REGION_OPTIONS: FilterOption[] = [
     {value: "WEM", label: "WA"}
 ];
 
-export const STATUS_COLOURS: Record<string, string> = {
-    operating: "green",
-    commissioning: "yellow",
-    committed: "blue",
-    retired: "gray"
-};
-
 export const SORT_OPTIONS: FilterOption[] = [
     {value: "status", label: "Status"},
     {value: "commencement", label: "Commencement date"},
@@ -83,27 +71,20 @@ export const SORT_OPTIONS: FilterOption[] = [
     {value: "expectedOperation", label: "Expected operation date"}
 ];
 
-export const COMMENCED_OPTIONS: FilterOption[] = [
+export const PAST_DATE_RANGE_OPTIONS: FilterOption[] = [
     {value: "lastMonth", label: "Last month"},
     {value: "lastQuarter", label: "Last quarter"},
     {value: "lastYear", label: "Last year"}
 ];
 
-export const EXPECTED_CLOSURE_OPTIONS: FilterOption[] = [
-    {value: "noDate", label: "No date"},
+export const FUTURE_DATE_RANGE_OPTIONS: FilterOption[] = [
     {value: "nextMonth", label: "Next month"},
     {value: "nextQuarter", label: "Next quarter"},
     {value: "nextYear", label: "Next year"}
 ];
 
-export const EXPECTED_OPERATION_OPTIONS: FilterOption[] = [
-    {value: "nextMonth", label: "Next month"},
-    {value: "nextQuarter", label: "Next quarter"},
-    {value: "nextYear", label: "Next year"}
-];
-
-// Month offset from today for each date range (negative = looking back)
-const RANGE_MONTHS: Record<Exclude<CommencedRange | ExpectedClosureRange | ExpectedOperationRange, "noDate">, number> = {
+// Month offset relative to today for each date range
+const RANGE_MONTHS: Record<PastDateRangeOptions | FutureDateRangeOptions, number> = {
     lastMonth: -1,
     lastQuarter: -3,
     lastYear: -12,
@@ -112,41 +93,26 @@ const RANGE_MONTHS: Record<Exclude<CommencedRange | ExpectedClosureRange | Expec
     nextYear: 12
 };
 
-// Lifecycle order used by the Status sort
-const STATUS_ORDER = ["operating", "commissioning", "committed", "retired"];
-
 // Returns the value if it's one of the options, else null
 function parseOption<T extends string>(value: string | null, options: FilterOption[]): T | null {
     return options.some((option) => option.value === value) ? value as T : null;
 }
 
-// Expects a UTC-midnight Date (as built by Date.UTC)
-function toIsoDay(date: Date): string {
-    return date.toISOString().slice(0, 10);
-}
-
-// Today's local calendar date; toISOString alone would give the UTC date (yesterday in AU mornings)
-function todayIsoDay(): string {
-    const now = new Date();
-    return toIsoDay(new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())));
-}
-
-function shiftMonths(isoDay: string, months: number): string {
-    const [year, month, day] = isoDay.split("-").map(Number);
-    return toIsoDay(new Date(Date.UTC(year, month - 1 + months, day)));
+// API dates carry a timezone offset; we only care about the calendar day, parsed as local midnight
+function toDay(value: string): Date {
+    return parseISO(value.slice(0, 10));
 }
 
 // Whether a date falls in the rolling window between today and `months` from today (inclusive).
 // Negative months look back, positive months look ahead.
 // Test: last month includes today and the date 1 month ago, excludes the day before;
 //       next year includes today..+12 months; missing value -> false; future date excluded from "last".
-export function withinMonths(value: string | null | undefined, months: number, today = todayIsoDay()): boolean {
+export function withinMonths(value: string | null | undefined, months: number, today = startOfToday()): boolean {
     if (!value) {
         return false;
     }
-    const day = value.slice(0, 10);
-    const edge = shiftMonths(today, months);
-    return months < 0 ? edge <= day && day <= today : today <= day && day <= edge;
+    const edge = addMonths(today, months);
+    return isWithinInterval(toDay(value), months < 0 ? {start: edge, end: today} : {start: today, end: edge});
 }
 
 // Test: known value -> label (VIC1 -> "VIC", coal_black -> "Coal (Black)"); unknown value -> returned as-is.
@@ -154,17 +120,11 @@ export function getLabel(options: FilterOption[], value: string): string {
     return options.find((option) => option.value === value)?.label ?? value;
 }
 
-const DATE_FORMAT = new Intl.DateTimeFormat("en-AU", {day: "numeric", month: "short", year: "numeric", timeZone: "UTC"});
-
 // Formats an API date ("2005-01-06T00:00:00+10:00") as "6 Jan 2005", using only the
 // YYYY-MM-DD part so the timezone offset can't shift the day.
 // Test: normal date; null/undefined -> "—"; "+08:00" date keeps its calendar day.
 export function formatDate(date: string | null | undefined): string {
-    if (!date) {
-        return "—";
-    }
-    const [year, month, day] = date.slice(0, 10).split("-").map(Number);
-    return DATE_FORMAT.format(new Date(Date.UTC(year, month - 1, day)));
+    return date ? format(toDay(date), "d MMM yyyy") : "—";
 }
 
 // Test: integer -> "30 MW"; decimal rounded to 1 dp (7.76 -> "7.8 MW"); null/undefined -> "—".
@@ -175,8 +135,16 @@ export function formatCapacity(mw: number | null | undefined): string {
     return `${mw.toLocaleString("en-AU", {maximumFractionDigits: 1})} MW`;
 }
 
-// Charge/discharge units duplicate the parent battery's capacity
-const BATTERY_DIRECTION_FUELTECHS = ["battery_charging", "battery_discharging"];
+type UnitDateField = "commencement_date" | "closure_date" | "expected_closure_date" | "expected_operation_date";
+
+// Earliest or latest non-null value of a unit date field (ISO strings compare chronologically).
+function pickDate(units: FacilityUnit[], field: UnitDateField, pick: "earliest" | "latest"): string | null {
+    const dates = units
+        .map((unit) => unit[field])
+        .filter((date): date is string => Boolean(date))
+        .sort();
+    return (pick === "earliest" ? dates[0] : dates[dates.length - 1]) ?? null;
+}
 
 // Rolls unit details up to facility level for the card summary.
 // Test: statuses/fuel techs de-duplicated in first-seen order; earliest date chosen;
@@ -184,24 +152,19 @@ const BATTERY_DIRECTION_FUELTECHS = ["battery_charging", "battery_discharging"];
 //       battery_charging/battery_discharging, ignores nulls; all null -> totalCapacity null;
 //       Adelaide Desalination's units -> 34.2.
 export function summariseUnits(units: FacilityUnit[]) {
-    const dates = units
-        .map((unit) => unit.commencement_date)
-        .filter((date): date is string => Boolean(date))
-        .sort();
-
     // ASSUMPTION: a facility's total capacity is the sum of its units' capacity_registered.
     // battery_charging/battery_discharging units are skipped because they repeat the capacity of
     // their parent "battery" unit (e.g. Adelaide Desalination lists 7.76 MW on all three).
     // Units without a registered capacity are ignored; null if none have one.
     const capacities = units
-        .filter((unit) => !BATTERY_DIRECTION_FUELTECHS.includes(unit.fueltech_id))
+        .filter((unit) => unit.fueltech_id !== "battery_charging" && unit.fueltech_id !== "battery_discharging")
         .map((unit) => unit.capacity_registered)
         .filter((capacity): capacity is number => capacity != null);
 
     return {
         statusIds: [...new Set(units.map((unit) => unit.status_id))],
         fueltechIds: [...new Set(units.map((unit) => unit.fueltech_id))],
-        earliestCommencement: dates[0] ?? null,
+        earliestCommencement: pickDate(units, "commencement_date", "earliest"),
         totalCapacity: capacities.length > 0 ? capacities.reduce((sum, capacity) => sum + capacity, 0) : null
     };
 }
@@ -225,9 +188,9 @@ export function getFiltersFromSearch(search: string): FacilityFilters {
         statusIds: parseParams(params.getAll(FacilityParam.STATUS_ID)),
         fueltechIds: parseParams(params.getAll(FacilityParam.FUELTECH_ID)),
         networkRegions: parseParams(params.getAll(FacilityParam.NETWORK_REGION)),
-        commenced: parseOption(params.get(FacilityParam.COMMENCED), COMMENCED_OPTIONS),
-        expectedClosure: parseOption(params.get(FacilityParam.EXPECTED_CLOSURE), EXPECTED_CLOSURE_OPTIONS),
-        expectedOperation: parseOption(params.get(FacilityParam.EXPECTED_OPERATION), EXPECTED_OPERATION_OPTIONS),
+        commenced: parseOption(params.get(FacilityParam.COMMENCED), PAST_DATE_RANGE_OPTIONS),
+        expectedClosure: parseOption(params.get(FacilityParam.EXPECTED_CLOSURE), FUTURE_DATE_RANGE_OPTIONS),
+        expectedOperation: parseOption(params.get(FacilityParam.EXPECTED_OPERATION), FUTURE_DATE_RANGE_OPTIONS),
         sortBy: parseOption(params.get(FacilityParam.SORT), SORT_OPTIONS)
     };
 }
@@ -241,18 +204,17 @@ export function buildSearchFromFilters(filters: FacilityFilters): string {
     statusIds.forEach((value) => params.append(FacilityParam.STATUS_ID, value));
     fueltechIds.forEach((value) => params.append(FacilityParam.FUELTECH_ID, value));
     networkRegions.forEach((value) => params.append(FacilityParam.NETWORK_REGION, value));
-    if (commenced) {
-        params.set(FacilityParam.COMMENCED, commenced);
-    }
-    if (expectedClosure) {
-        params.set(FacilityParam.EXPECTED_CLOSURE, expectedClosure);
-    }
-    if (expectedOperation) {
-        params.set(FacilityParam.EXPECTED_OPERATION, expectedOperation);
-    }
-    if (sortBy) {
-        params.set(FacilityParam.SORT, sortBy);
-    }
+    const singleValues: [string, string | null][] = [
+        [FacilityParam.COMMENCED, commenced],
+        [FacilityParam.EXPECTED_CLOSURE, expectedClosure],
+        [FacilityParam.EXPECTED_OPERATION, expectedOperation],
+        [FacilityParam.SORT, sortBy]
+    ];
+    singleValues.forEach(([key, value]) => {
+        if (value) {
+            params.set(key, value);
+        }
+    });
     const query = params.toString();
     return query ? `?${query}` : "";
 }
@@ -263,9 +225,7 @@ function unitMatches(unit: FacilityUnit, filters: FacilityFilters): boolean {
         (fueltechIds.length === 0 || fueltechIds.includes(unit.fueltech_id)) &&
         (!commenced || withinMonths(unit.commencement_date, RANGE_MONTHS[commenced])) &&
         (!expectedOperation || withinMonths(unit.expected_operation_date, RANGE_MONTHS[expectedOperation])) &&
-        (!expectedClosure || (expectedClosure === "noDate"
-            ? !unit.expected_closure_date
-            : withinMonths(unit.expected_closure_date, RANGE_MONTHS[expectedClosure])));
+        (!expectedClosure || withinMonths(unit.expected_closure_date, RANGE_MONTHS[expectedClosure]));
 }
 
 // Region matches at facility level; status, fuel tech and dates must all match on the same unit.
@@ -291,17 +251,6 @@ export function filterFacilities(facilities: Facility[], filters: FacilityFilter
     });
 }
 
-type UnitDateField = "commencement_date" | "closure_date" | "expected_closure_date" | "expected_operation_date";
-
-// Earliest or latest non-null value of a unit date field (ISO strings compare chronologically).
-function pickDate(units: FacilityUnit[], field: UnitDateField, pick: "earliest" | "latest"): string | null {
-    const dates = units
-        .map((unit) => unit[field])
-        .filter((date): date is string => Boolean(date))
-        .sort();
-    return (pick === "earliest" ? dates[0] : dates[dates.length - 1]) ?? null;
-}
-
 // Null dates always sort last regardless of direction
 function compareDates(a: string | null, b: string | null, direction: "asc" | "desc"): number {
     if (a === b) {
@@ -315,6 +264,9 @@ function compareDates(a: string | null, b: string | null, direction: "asc" | "de
     }
     return direction === "asc" ? a.localeCompare(b) : b.localeCompare(a);
 }
+
+// Lifecycle order used by the Status sort
+const STATUS_ORDER = ["operating", "commissioning", "committed", "retired"];
 
 // Status: by the facility's most active unit status (lifecycle order).
 // Commencement: earliest commencement, newest first. Closure: latest closure, newest first.
@@ -365,10 +317,4 @@ export function sumCapacity(facilities: Facility[]): number | null {
         .map((facility) => summariseUnits(facility.units).totalCapacity)
         .filter((total): total is number => total != null);
     return totals.length > 0 ? totals.reduce((sum, total) => sum + total, 0) : null;
-}
-
-// Test: page 1 -> first `size` items; last page returns the remainder; page past the end -> [];
-//       empty list -> [].
-export function paginate<T>(items: T[], page: number, size: number): T[] {
-    return items.slice((page - 1) * size, page * size);
 }

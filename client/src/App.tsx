@@ -2,18 +2,16 @@ import {useEffect, useMemo, useState} from 'react';
 import {Alert, AppShell, Button, Checkbox, Group, Loader, ScrollArea, Select, Stack, Title} from '@mantine/core';
 import FacilityFilter from './components/FacilityFilter';
 import FacilityList from './components/FacilityList';
-import type {CommencedRange, ExpectedClosureRange, ExpectedOperationRange, Facility} from './types';
+import type {PastDateRangeOptions, FutureDateRangeOptions, Facility} from './types';
 import {
     buildSearchFromFilters,
-    COMMENCED_OPTIONS,
-    EXPECTED_CLOSURE_OPTIONS,
-    EXPECTED_OPERATION_OPTIONS,
+    PAST_DATE_RANGE_OPTIONS,
+    FUTURE_DATE_RANGE_OPTIONS,
     filterFacilities,
     FUELTECH_GROUPED_OPTIONS,
     getFiltersFromSearch,
     NETWORK_REGION_OPTIONS,
-    NON_RENEWABLE_FUELTECH_IDS,
-    RENEWABLE_FUELTECH_IDS,
+    FUELTECH_OPTIONS,
     sortFacilities,
     STATUS_OPTIONS
 } from './utils';
@@ -22,10 +20,10 @@ const App = () => {
     const [filters, setFilters] = useState(() => getFiltersFromSearch(window.location.search));
     const [facilities, setFacilities] = useState<Facility[] | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [expandAll, setExpandAll] = useState(false);
+    const [expandAll, setExpandAll] = useState(false); // refers to showing units
     const [showTotalCapacity, setShowTotalCapacity] = useState(false);
 
-    // Fetch every facility once; all filtering happens client-side
+    // Fetch all facilities once + filter on client-side
     useEffect(() => {
         let abort = false;
 
@@ -46,7 +44,7 @@ const App = () => {
         };
     }, []);
 
-    // Keep the URL in sync so a reload restores the same filters
+    // Keep URL in sync so reloading restores the same filters
     useEffect(() => {
         window.history.replaceState(null, "", buildSearchFromFilters(filters) || window.location.pathname);
     }, [filters]);
@@ -59,7 +57,7 @@ const App = () => {
     return (
         <AppShell
             header={{height: 56}}
-            navbar={{width: 260, breakpoint: 0}} // Always shown; breakpoint 0 avoids the mobile overlay
+            navbar={{width: 260, breakpoint: 0}} // Always show navbar - decided to descope responsiveness
             padding="md"
         >
             <AppShell.Header>
@@ -96,14 +94,14 @@ const App = () => {
                                 <Button
                                     size="compact-xs"
                                     variant="light"
-                                    onClick={() => setFilters((prev) => ({...prev, fueltechIds: RENEWABLE_FUELTECH_IDS}))}
+                                    onClick={() => setFilters((prev) => ({...prev, fueltechIds: FUELTECH_OPTIONS.filter((option) => option.renewable).map((option) => option.value)}))}
                                 >
                                     Renewables
                                 </Button>
                                 <Button
                                     size="compact-xs"
                                     variant="light"
-                                    onClick={() => setFilters((prev) => ({...prev, fueltechIds: NON_RENEWABLE_FUELTECH_IDS}))}
+                                    onClick={() => setFilters((prev) => ({...prev, fueltechIds: FUELTECH_OPTIONS.filter((option) => !option.renewable).map((option) => option.value)}))}
                                 >
                                     Non-renewables
                                 </Button>
@@ -112,39 +110,39 @@ const App = () => {
                         <Select
                             label="Commenced"
                             placeholder="Any time"
-                            data={COMMENCED_OPTIONS}
+                            data={PAST_DATE_RANGE_OPTIONS}
                             value={filters.commenced}
-                            onChange={(value) => setFilters((prev) => ({...prev, commenced: value as CommencedRange | null}))}
+                            onChange={(value) => setFilters((prev) => ({...prev, commenced: value as PastDateRangeOptions | null}))}
                             clearable
                             withAlignedLabels
                         />
                         <Select
                             label="Expected operation"
                             placeholder="Any time"
-                            data={EXPECTED_OPERATION_OPTIONS}
+                            data={FUTURE_DATE_RANGE_OPTIONS}
                             value={filters.expectedOperation}
-                            onChange={(value) => setFilters((prev) => ({...prev, expectedOperation: value as ExpectedOperationRange | null}))}
+                            onChange={(value) => setFilters((prev) => ({...prev, expectedOperation: value as FutureDateRangeOptions | null}))}
                             clearable
                             withAlignedLabels
                         />
                         <Select
                             label="Expected closure"
                             placeholder="Any time"
-                            data={EXPECTED_CLOSURE_OPTIONS}
+                            data={FUTURE_DATE_RANGE_OPTIONS}
                             value={filters.expectedClosure}
-                            onChange={(value) => setFilters((prev) => ({...prev, expectedClosure: value as ExpectedClosureRange | null}))}
+                            onChange={(value) => setFilters((prev) => ({...prev, expectedClosure: value as FutureDateRangeOptions | null}))}
                             clearable
                             withAlignedLabels
                         />
                         <Checkbox
                             label="Show all units"
                             checked={expandAll}
-                            onChange={(event) => setExpandAll(event.currentTarget.checked)}
+                            onChange={(e) => setExpandAll(e.currentTarget.checked)}
                         />
                         <Checkbox
                             label="Show total capacity"
                             checked={showTotalCapacity}
-                            onChange={(event) => setShowTotalCapacity(event.currentTarget.checked)}
+                            onChange={(e) => setShowTotalCapacity(e.currentTarget.checked)}
                         />
                     </Stack>
                 </AppShell.Section>
@@ -153,7 +151,6 @@ const App = () => {
                 {error ? (
                     <Alert color="red" title="Couldn't load facilities">{error}</Alert>
                 ) : visibleFacilities ? (
-                    // Remount on filter/sort change so pagination resets to page 1
                     <FacilityList
                         key={buildSearchFromFilters(filters)}
                         facilities={visibleFacilities}

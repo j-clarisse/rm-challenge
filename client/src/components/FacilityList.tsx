@@ -1,10 +1,14 @@
 import {useState} from 'react';
 import {Divider, Group, Pagination, Select, Stack, Text} from '@mantine/core';
 import type {Facility, SortBy} from '../types';
-import {formatCapacity, paginate, SORT_OPTIONS, sumCapacity} from '../utils';
+import {formatCapacity, SORT_OPTIONS, sumCapacity} from '../utils';
 import FacilityCard from './FacilityCard';
 
 const PAGE_SIZE = 50;
+
+function paginate<T>(items: T[], page: number, size: number): T[] {
+    return items.slice((page - 1) * size, page * size);
+}
 
 type FacilityListProps = {
     facilities: Facility[];
@@ -53,7 +57,7 @@ const FacilityList = ({facilities, expandAll, showTotalCapacity, sortBy, onSortC
             </Group>
             {paginate(facilities, page, PAGE_SIZE).map((facility) => (
                 // Key includes expandAll so toggling it remounts cards with the new default
-                <FacilityCard key={`${facility.code}-${expandAll}`} facility={facility} defaultExpanded={expandAll}/>
+                <FacilityCard key={`${facility.code}-${expandAll}`} facility={facility} showUnits={expandAll}/>
             ))}
         </Stack>
     );
