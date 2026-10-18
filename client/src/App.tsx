@@ -11,6 +11,7 @@ import {
     NETWORK_REGION_OPTIONS,
     NON_RENEWABLE_FUELTECH_IDS,
     RENEWABLE_FUELTECH_IDS,
+    sortFacilities,
     STATUS_OPTIONS
 } from './utils';
 
@@ -47,7 +48,7 @@ const App = () => {
     }, [filters]);
 
     const visibleFacilities = useMemo(
-        () => facilities && filterFacilities(facilities, filters),
+        () => facilities && sortFacilities(filterFacilities(facilities, filters), filters.sortBy),
         [facilities, filters]
     );
 
@@ -115,8 +116,14 @@ const App = () => {
                 {error ? (
                     <Alert color="red" title="Couldn't load facilities">{error}</Alert>
                 ) : visibleFacilities ? (
-                    // Remount on filter change so pagination resets to page 1
-                    <FacilityList key={buildSearchFromFilters(filters)} facilities={visibleFacilities} expandAll={expandAll}/>
+                    // Remount on filter/sort change so pagination resets to page 1
+                    <FacilityList
+                        key={buildSearchFromFilters(filters)}
+                        facilities={visibleFacilities}
+                        expandAll={expandAll}
+                        sortBy={filters.sortBy}
+                        onSortChange={(sortBy) => setFilters((prev) => ({...prev, sortBy}))}
+                    />
                 ) : (
                     <Loader/>
                 )}

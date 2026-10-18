@@ -19,13 +19,17 @@ export type Facility = {
 export const FacilityParam = {
     STATUS_ID: "status_id",
     FUELTECH_ID: "fueltech_id",
-    NETWORK_REGION: "network_region"
+    NETWORK_REGION: "network_region",
+    SORT: "sort"
 } as const;
+
+export type SortBy = "status" | "commencement" | "closure" | "expectedClosure";
 
 export type FacilityFilters = {
     statusIds: string[];
     fueltechIds: string[];
     networkRegions: string[];
+    sortBy: SortBy | null; // null keeps the API order
 };
 
 export type FilterOption = {

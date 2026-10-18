@@ -4,7 +4,8 @@ import {
     type FacilityFilters,
     type FacilityUnit,
     type FilterOption,
-    type FueltechOption
+    type FueltechOption,
+    type SortBy
 } from './types';
 
 export const STATUS_OPTIONS: FilterOption[] = [
@@ -71,6 +72,20 @@ export const STATUS_COLOURS: Record<string, string> = {
     retired: "gray"
 };
 
+export const SORT_OPTIONS: FilterOption[] = [
+    {value: "status", label: "Status"},
+    {value: "commencement", label: "Commencement date"},
+    {value: "closure", label: "Closure date"},
+    {value: "expectedClosure", label: "Expected closure date"}
+];
+
+// Lifecycle order used by the Status sort
+const STATUS_ORDER = ["operating", "commissioning", "committed", "retired"];
+
+function isSortBy(value: string | null): value is SortBy {
+    return SORT_OPTIONS.some((option) => option.value === value);
+}
+
 // Test: known value -> label (VIC1 -> "VIC", coal_black -> "Coal (Black)"); unknown value -> returned as-is.
 export function getLabel(options: FilterOption[], value: string): string {
     return options.find((option) => option.value === value)?.label ?? value;
@@ -123,24 +138,30 @@ export function parseParams(values: string[]): string[] {
 }
 
 // Reads facility filters from a URL query string (e.g. window.location.search).
-// Test: "" -> empty filters; repeated params; comma lists; unknown params ignored.
+// Test: "" -> empty filters, sortBy null; repeated params; comma lists; unknown params ignored;
+//       unknown sort value -> null.
 export function getFiltersFromSearch(search: string): FacilityFilters {
     const params = new URLSearchParams(search);
+    const sort = params.get(FacilityParam.SORT);
     return {
         statusIds: parseParams(params.getAll(FacilityParam.STATUS_ID)),
         fueltechIds: parseParams(params.getAll(FacilityParam.FUELTECH_ID)),
-        networkRegions: parseParams(params.getAll(FacilityParam.NETWORK_REGION))
+        networkRegions: parseParams(params.getAll(FacilityParam.NETWORK_REGION)),
+        sortBy: isSortBy(sort) ? sort : null
     };
 }
 
 // Inverse of getFiltersFromSearch, used to keep the address bar in sync with the filters.
-// Test: empty filters -> ""; all three params included, list values repeated;
+// Test: empty filters -> ""; all params included, list values repeated; null sort omitted;
 //       round trip getFiltersFromSearch(buildSearchFromFilters(f)) deep-equals f.
-export function buildSearchFromFilters({statusIds, fueltechIds, networkRegions}: FacilityFilters): string {
+export function buildSearchFromFilters({statusIds, fueltechIds, networkRegions, sortBy}: FacilityFilters): string {
     const params = new URLSearchParams();
     statusIds.forEach((value) => params.append(FacilityParam.STATUS_ID, value));
     fueltechIds.forEach((value) => params.append(FacilityParam.FUELTECH_ID, value));
     networkRegions.forEach((value) => params.append(FacilityParam.NETWORK_REGION, value));
+    if (sortBy) {
+        params.set(FacilityParam.SORT, sortBy);
+    }
     const query = params.toString();
     return query ? `?${query}` : "";
 }
@@ -169,6 +190,70 @@ export function filterFacilities(facilities: Facility[], filters: FacilityFilter
         const units = facility.units.filter((unit) => unitMatches(unit, filters));
         return units.length > 0 ? [{...facility, units}] : [];
     });
+}
+
+type UnitDateField = "commencement_date" | "closure_date" | "expected_closure_date";
+
+// Earliest or latest non-null value of a unit date field (ISO strings compare chronologically).
+function pickDate(units: FacilityUnit[], field: UnitDateField, pick: "earliest" | "latest"): string | null {
+    const dates = units
+        .map((unit) => unit[field])
+        .filter((date): date is string => Boolean(date))
+        .sort();
+    return (pick === "earliest" ? dates[0] : dates[dates.length - 1]) ?? null;
+}
+
+// Null dates always sort last regardless of direction
+function compareDates(a: string | null, b: string | null, direction: "asc" | "desc"): number {
+    if (a === b) {
+        return 0;
+    }
+    if (!a) {
+        return 1;
+    }
+    if (!b) {
+        return -1;
+    }
+    return direction === "asc" ? a.localeCompare(b) : b.localeCompare(a);
+}
+
+// Status: by the facility's most active unit status (lifecycle order).
+// Commencement: earliest commencement, newest first. Closure: latest closure, newest first.
+// Expected closure: earliest expected closure, soonest first. Ties broken by name.
+// Test: null sortBy -> same order; each mode orders correctly; mixed-status facility ranks by
+//       its most active status; null dates last in both directions; ties broken by name;
+//       input array not mutated.
+export function sortFacilities(facilities: Facility[], sortBy: SortBy | null): Facility[] {
+    if (!sortBy) {
+        return facilities;
+    }
+    const keyed = facilities.map((facility) => ({
+        facility,
+        statusRank: Math.min(...facility.units.map((unit) => {
+            const index = STATUS_ORDER.indexOf(unit.status_id);
+            return index === -1 ? STATUS_ORDER.length : index;
+        })),
+        commencement: pickDate(facility.units, "commencement_date", "earliest"),
+        closure: pickDate(facility.units, "closure_date", "latest"),
+        expectedClosure: pickDate(facility.units, "expected_closure_date", "earliest")
+    }));
+
+    const compare = (a: typeof keyed[number], b: typeof keyed[number]): number => {
+        switch (sortBy) {
+            case "status":
+                return a.statusRank - b.statusRank;
+            case "commencement":
+                return compareDates(a.commencement, b.commencement, "desc");
+            case "closure":
+                return compareDates(a.closure, b.closure, "desc");
+            case "expectedClosure":
+                return compareDates(a.expectedClosure, b.expectedClosure, "asc");
+        }
+    };
+
+    keyed.sort((a, b) => compare(a, b) || a.facility.name.localeCompare(b.facility.name));
+
+    return keyed.map(({facility}) => facility);
 }
 
 // Test: page 1 -> first `size` items; last page returns the remainder; page past the end -> [];

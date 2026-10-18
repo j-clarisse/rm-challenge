@@ -1,7 +1,7 @@
 import {useState} from 'react';
-import {Group, Pagination, Stack, Text} from '@mantine/core';
-import type {Facility} from '../types';
-import {paginate} from '../utils';
+import {Group, Pagination, Select, Stack, Text} from '@mantine/core';
+import type {Facility, SortBy} from '../types';
+import {paginate, SORT_OPTIONS} from '../utils';
 import FacilityCard from './FacilityCard';
 
 const PAGE_SIZE = 50;
@@ -9,9 +9,11 @@ const PAGE_SIZE = 50;
 type FacilityListProps = {
     facilities: Facility[];
     expandAll: boolean;
+    sortBy: SortBy | null;
+    onSortChange: (sortBy: SortBy | null) => void;
 };
 
-const FacilityList = ({facilities, expandAll}: FacilityListProps) => {
+const FacilityList = ({facilities, expandAll, sortBy, onSortChange}: FacilityListProps) => {
     const [page, setPage] = useState(1);
     const totalPages = Math.ceil(facilities.length / PAGE_SIZE);
 
@@ -24,7 +26,21 @@ const FacilityList = ({facilities, expandAll}: FacilityListProps) => {
         <Stack gap="sm">
             <Group justify="space-between">
                 <Text fw={500}>{facilities.length} facilities</Text>
-                <Pagination total={totalPages} value={page} onChange={handlePageChange} size="sm" hideWithOnePage/>
+                <Group gap="sm">
+                    <Select
+                        data={SORT_OPTIONS}
+                        value={sortBy}
+                        onChange={(value) => onSortChange(value as SortBy | null)}
+                        placeholder="Default"
+                        leftSection={<Text size="sm" c="dimmed">Sort by:</Text>}
+                        leftSectionWidth={64}
+                        leftSectionPointerEvents="none"
+                        clearable
+                        withAlignedLabels
+                        w={250}
+                    />
+                    <Pagination total={totalPages} value={page} onChange={handlePageChange} size="sm" hideWithOnePage/>
+                </Group>
             </Group>
             {paginate(facilities, page, PAGE_SIZE).map((facility) => (
                 // Key includes expandAll so toggling it remounts cards with the new default
