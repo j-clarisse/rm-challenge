@@ -1,19 +1,19 @@
-import {useEffect, useState} from 'react'
+import {useEffect} from 'react'
 import './App.css'
 
 function App() {
-  const [message, setMessage] = useState<string | null>(null);
+  // const [message, setMessage] = useState<string | null>(null);
 
     useEffect(() => {
         let abort = false;
 
-        fetch("/api/message").then(async (res) => {
+        fetch("/api/facilities").then(async (res) => {
             if (res.ok) {
                 const body = await res.json();
                 if (abort) {
                     return;
                 }
-                setMessage(body.message);
+                console.log(body.facilities);
             }
         });
 
@@ -29,7 +29,7 @@ function App() {
               This is the starter repository for the code challenge provided to you by the interviewer.
           </p>
           <div className="card">
-              {message || "🌀🌀🌀"}
+              {"🌀🌀🌀"}
           </div>
       </>
   )
