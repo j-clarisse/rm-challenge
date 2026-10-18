@@ -3,6 +3,9 @@ export type FacilityUnit = {
     fueltech_id: string;
     status_id: string;
     commencement_date?: string | null;
+    capacity_registered?: number | null;
+    closure_date?: string | null;
+    expected_closure_date?: string | null;
 };
 
 export type Facility = {

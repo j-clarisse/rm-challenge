@@ -89,6 +89,14 @@ export function formatDate(date: string | null | undefined): string {
     return DATE_FORMAT.format(new Date(Date.UTC(year, month - 1, day)));
 }
 
+// Test: integer -> "30 MW"; decimal rounded to 1 dp (7.76 -> "7.8 MW"); null/undefined -> "—".
+export function formatCapacity(mw: number | null | undefined): string {
+    if (mw == null) {
+        return "—";
+    }
+    return `${mw.toLocaleString("en-AU", {maximumFractionDigits: 1})} MW`;
+}
+
 // Rolls unit details up to facility level for the card summary.
 // Test: statuses/fuel techs de-duplicated in first-seen order; earliest date chosen;
 //       no dates -> earliestCommencement null.

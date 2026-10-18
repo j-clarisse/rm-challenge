@@ -2,6 +2,7 @@ import {useState} from 'react';
 import {AccordionChevron, Badge, Card, Group, Stack, Table, Text} from '@mantine/core';
 import type {Facility} from '../types';
 import {
+    formatCapacity,
     formatDate,
     FUELTECH_OPTIONS,
     getLabel,
@@ -46,6 +47,9 @@ const FacilityCard = ({facility, defaultExpanded}: FacilityCardProps) => {
                         <Group gap="xs" wrap="nowrap">
                             <Text fw={600}>{facility.name}</Text>
                             <Badge variant="light">{getLabel(NETWORK_REGION_OPTIONS, facility.network_region)}</Badge>
+                            {earliestCommencement && (
+                                <Text size="sm" c="dimmed">Since {formatDate(earliestCommencement)}</Text>
+                            )}
                         </Group>
                         <Group gap={4} justify="flex-end">
                             {statusIds.map((statusId) => (
@@ -62,9 +66,6 @@ const FacilityCard = ({facility, defaultExpanded}: FacilityCardProps) => {
                             </Badge>
                         ))}
                     </Group>
-                    {earliestCommencement && (
-                        <Text size="sm" c="dimmed">Since {formatDate(earliestCommencement)}</Text>
-                    )}
                 </Stack>
             </Card.Section>
             <Card.Section withBorder inheritPadding py="xs">
@@ -82,7 +83,7 @@ const FacilityCard = ({facility, defaultExpanded}: FacilityCardProps) => {
                     onClick={(event) => event.stopPropagation()}
                     style={{cursor: "auto"}}
                 >
-                    <Table.ScrollContainer minWidth={360}>
+                    <Table.ScrollContainer minWidth={640}>
                         <Table fz="xs" striped verticalSpacing={4}>
                             <Table.Thead>
                                 <Table.Tr>
@@ -90,6 +91,9 @@ const FacilityCard = ({facility, defaultExpanded}: FacilityCardProps) => {
                                     <Table.Th>Technology</Table.Th>
                                     <Table.Th>Status</Table.Th>
                                     <Table.Th>Commenced</Table.Th>
+                                    <Table.Th ta="right">Capacity (Registered)</Table.Th>
+                                    <Table.Th>Closure</Table.Th>
+                                    <Table.Th>Expected closure</Table.Th>
                                 </Table.Tr>
                             </Table.Thead>
                             <Table.Tbody>
@@ -99,6 +103,9 @@ const FacilityCard = ({facility, defaultExpanded}: FacilityCardProps) => {
                                         <Table.Td>{getLabel(FUELTECH_OPTIONS, unit.fueltech_id)}</Table.Td>
                                         <Table.Td>{getLabel(STATUS_OPTIONS, unit.status_id)}</Table.Td>
                                         <Table.Td>{formatDate(unit.commencement_date)}</Table.Td>
+                                        <Table.Td ta="right">{formatCapacity(unit.capacity_registered)}</Table.Td>
+                                        <Table.Td>{formatDate(unit.closure_date)}</Table.Td>
+                                        <Table.Td>{formatDate(unit.expected_closure_date)}</Table.Td>
                                     </Table.Tr>
                                 ))}
                             </Table.Tbody>
