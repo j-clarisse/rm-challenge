@@ -11,6 +11,8 @@ import {
     type SortBy
 } from './types';
 
+// Note: AI used significantly with utility functions and testing
+
 /** LABELS & FORMATTING HELPERS */
 export const STATUS_OPTIONS: FilterOption[] = [
     {value: "committed", label: "Committed"},
