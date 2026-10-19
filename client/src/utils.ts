@@ -11,7 +11,7 @@ import {
     type SortBy
 } from './types';
 
-/** Label & formatting helpers */
+/** LABELS & FORMATTING HELPERS */
 export const STATUS_OPTIONS: FilterOption[] = [
     {value: "committed", label: "Committed"},
     {value: "operating", label: "Operating"},
@@ -49,7 +49,7 @@ export const FUELTECH_OPTIONS: FueltechOption[] = [
     {value: "battery", label: "Battery", renewable: false}
 ];
 
-// Grouped for the Fuel tech MultiSelect dropdown
+// Grouped to enable fuel tech preset selections
 export const FUELTECH_GROUPED_OPTIONS = [
     {group: "Renewable", items: FUELTECH_OPTIONS.filter((option) => option.renewable)},
     {group: "Non-renewable", items: FUELTECH_OPTIONS.filter((option) => !option.renewable)}
@@ -89,23 +89,18 @@ const LABEL_MAP: Record<string, string> = Object.fromEntries(
     [...STATUS_OPTIONS, ...FUELTECH_OPTIONS, ...NETWORK_REGION_OPTIONS].map((option) => [option.value, option.label])
 );
 
-// Test: known value -> label (VIC1 -> "VIC", coal_black -> "Coal (Black)"); unknown value -> returned as-is.
 export function getLabel(value: string): string {
     return LABEL_MAP[value] ?? value;
 }
 
 const CAPACITY_FORMAT = new Intl.NumberFormat("en-AU", {maximumFractionDigits: 0});
 
-// Test: integer -> "30 MW"; decimal rounded to whole MW (7.76 -> "8 MW"); null/undefined -> "—".
 export function formatCapacity(mw: number | null | undefined): string {
     return mw == null ? "—" : `${CAPACITY_FORMAT.format(mw)} MW`;
 }
 
-/** Filtering & sorting helpers */
-
+/** FILTERING & SORTING HELPERS */
 // Accepts both repeated params (?a=x&a=y) and comma lists (?a=x,y).
-// Test: [] -> []; repeated values; comma list; repeated + comma combined;
-//       whitespace and empty segments ("a,,b ") -> ["a", "b"].
 export function parseParams(values: string[]): string[] {
     return values
         .flatMap((value) => value.split(","))
@@ -119,8 +114,6 @@ function parseOption<T extends string>(value: string | null, options: FilterOpti
 }
 
 // Reads facility filters from a URL query string (e.g. window.location.search).
-// Test: "" -> empty filters, single-value fields null; repeated params; comma lists; unknown params
-//       ignored; unknown sort/commenced/expected_closure/expected_operation values -> null.
 export function getFiltersFromSearch(search: string): FacilityFilters {
     const params = new URLSearchParams(search);
     return {
@@ -135,8 +128,6 @@ export function getFiltersFromSearch(search: string): FacilityFilters {
 }
 
 // Inverse of getFiltersFromSearch, used to keep the address bar in sync with the filters.
-// Test: empty filters -> ""; all params included, list values repeated; null fields omitted;
-//       round trip getFiltersFromSearch(buildSearchFromFilters(f)) deep-equals f.
 export function buildSearchFromFilters(filters: FacilityFilters): string {
     const {statusIds, fueltechIds, networkRegions, commenced, expectedClosure, expectedOperation, sortBy} = filters;
     const params = new URLSearchParams();
@@ -167,7 +158,7 @@ const DATE_RANGE_INTERVAL: Record<PastDateRangeOptions | FutureDateRangeOptions,
     nextYear: 12
 };
 
-// API returns dates with timezone offset. This extracts calendar day, parsed as local midnight
+// This extracts calendar day since API returns dates with a timezone offset
 function extractDate(value: string): Date {
     return parseISO(value.slice(0, 10));
 }
@@ -191,10 +182,6 @@ function unitMatches(unit: FacilityUnit, filters: FacilityFilters): boolean {
 
 // Region matches at facility level; status, fuel tech and dates must all match on the same unit.
 // Units are trimmed to the matching ones (mirrors how the Open Electricity API filters).
-// Test: no filters -> all facilities and all units; region only; status only; fuel tech only;
-//       status + fuel tech on different units -> excluded; returned units are only matching ones;
-//       date filters trim units like status and fuel tech; facility with no units excluded once a
-//       unit filter is set.
 export function filterFacilities(facilities: Facility[], filters: FacilityFilters): Facility[] {
     const {statusIds, fueltechIds, networkRegions, commenced, expectedClosure, expectedOperation} = filters;
     const hasUnitFilter = statusIds.length > 0 || fueltechIds.length > 0 ||
@@ -265,7 +252,7 @@ function dateSort(field: UnitDateField, pick: "earliest" | "latest", direction: 
     };
 }
 
-// How to derive and compare each sort's key
+// How each attribute is sorted
 const SORT_CONFIG: Record<SortBy, {key: (units: FacilityUnit[]) => SortKey; compare: (a: SortKey, b: SortKey) => number}> = {
     status: {key: statusRank, compare: (a, b) => (a as number) - (b as number)},
     commencement: dateSort("commencement_date", "earliest", "desc"),
@@ -278,9 +265,6 @@ const SORT_CONFIG: Record<SortBy, {key: (units: FacilityUnit[]) => SortKey; comp
 // Commencement: earliest commencement, newest first. Closure: latest closure, newest first.
 // Expected closure / expected operation: earliest date, soonest first. Ties broken by name.
 // Only the selected sort's key is computed.
-// Test: null sortBy -> same order; each mode orders correctly; mixed-status facility ranks by
-//       its most active status; null dates last in both directions; ties broken by name;
-//       input array not mutated.
 export function sortFacilities(facilities: Facility[], sortBy: SortBy | null): Facility[] {
     if (!sortBy) {
         return facilities;
@@ -292,15 +276,9 @@ export function sortFacilities(facilities: Facility[], sortBy: SortBy | null): F
         .map(({facility}) => facility);
 }
 
-// Rolls unit details up to facility level for the card summary.
-// Test: statuses/fuel techs de-duplicated in first-seen order; earliest date chosen;
-//       no dates -> earliestCommencement null; capacity sums capacity_registered, skips
-//       battery_charging/battery_discharging, ignores nulls; all null -> totalCapacity null;
-//       Adelaide Desalination's units -> 34.2.
-// ASSUMPTION: a facility's total capacity is the sum of its units' capacity_registered.
-// battery_charging/battery_discharging units are skipped because they repeat the capacity of
-// their parent "battery" unit (e.g. Adelaide Desalination lists 7.76 MW on all three).
-// Units without a registered capacity are ignored; null if none have one.
+// Note: Assumed total capacity is the sum of units' registered capacity
+// - Skips battery_charging/battery_discharging since it repeats
+// - Ignores units w/o registered capacity
 function totalCapacity(units: FacilityUnit[]): number | null {
     const capacities = units
         .filter((unit) => unit.fueltech_id !== "battery_charging" && unit.fueltech_id !== "battery_discharging")
@@ -309,6 +287,7 @@ function totalCapacity(units: FacilityUnit[]): number | null {
     return capacities.length > 0 ? capacities.reduce((sum, capacity) => sum + capacity, 0) : null;
 }
 
+// Rolls unit details up to facility level for the card summary.
 export function summariseUnits(units: FacilityUnit[]) {
     return {
         statusIds: [...new Set(units.map((unit) => unit.status_id))],
@@ -319,7 +298,6 @@ export function summariseUnits(units: FacilityUnit[]) {
 }
 
 // Sum of each facility's total capacity (same assumption as totalCapacity); null if none have one.
-// Test: sums facility totals; facilities without capacity ignored; empty list / all null -> null.
 export function sumCapacity(facilities: Facility[]): number | null {
     const totals = facilities
         .map((facility) => totalCapacity(facility.units))
