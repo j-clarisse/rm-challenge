@@ -11,6 +11,7 @@ import {
     type SortBy
 } from './types';
 
+/** Label & formatting helpers */
 export const STATUS_OPTIONS: FilterOption[] = [
     {value: "committed", label: "Committed"},
     {value: "operating", label: "Operating"},
@@ -83,91 +84,24 @@ export const FUTURE_DATE_RANGE_OPTIONS: FilterOption[] = [
     {value: "nextYear", label: "Next year"}
 ];
 
-// Month offset relative to today for each date range
-const RANGE_MONTHS: Record<PastDateRangeOptions | FutureDateRangeOptions, number> = {
-    lastMonth: -1,
-    lastQuarter: -3,
-    lastYear: -12,
-    nextMonth: 1,
-    nextQuarter: 3,
-    nextYear: 12
-};
-
-// Returns the value if it's one of the options, else null
-function parseOption<T extends string>(value: string | null, options: FilterOption[]): T | null {
-    return options.some((option) => option.value === value) ? value as T : null;
-}
-
-// API dates carry a timezone offset; we only care about the calendar day, parsed as local midnight
-function toDay(value: string): Date {
-    return parseISO(value.slice(0, 10));
-}
-
-// Whether a date falls in the rolling window between today and `months` from today (inclusive).
-// Negative months look back, positive months look ahead.
-// Test: last month includes today and the date 1 month ago, excludes the day before;
-//       next year includes today..+12 months; missing value -> false; future date excluded from "last".
-export function withinMonths(value: string | null | undefined, months: number, today = startOfToday()): boolean {
-    if (!value) {
-        return false;
-    }
-    const edge = addMonths(today, months);
-    return isWithinInterval(toDay(value), months < 0 ? {start: edge, end: today} : {start: today, end: edge});
-}
+// value -> label for every option shown on cards (status, fuel tech and region values must be distinct)
+const LABEL_MAP: Record<string, string> = Object.fromEntries(
+    [...STATUS_OPTIONS, ...FUELTECH_OPTIONS, ...NETWORK_REGION_OPTIONS].map((option) => [option.value, option.label])
+);
 
 // Test: known value -> label (VIC1 -> "VIC", coal_black -> "Coal (Black)"); unknown value -> returned as-is.
-export function getLabel(options: FilterOption[], value: string): string {
-    return options.find((option) => option.value === value)?.label ?? value;
+export function getLabel(value: string): string {
+    return LABEL_MAP[value] ?? value;
 }
 
-// Formats an API date ("2005-01-06T00:00:00+10:00") as "6 Jan 2005", using only the
-// YYYY-MM-DD part so the timezone offset can't shift the day.
-// Test: normal date; null/undefined -> "—"; "+08:00" date keeps its calendar day.
-export function formatDate(date: string | null | undefined): string {
-    return date ? format(toDay(date), "d MMM yyyy") : "—";
-}
+const CAPACITY_FORMAT = new Intl.NumberFormat("en-AU", {maximumFractionDigits: 0});
 
-// Test: integer -> "30 MW"; decimal rounded to 1 dp (7.76 -> "7.8 MW"); null/undefined -> "—".
+// Test: integer -> "30 MW"; decimal rounded to whole MW (7.76 -> "8 MW"); null/undefined -> "—".
 export function formatCapacity(mw: number | null | undefined): string {
-    if (mw == null) {
-        return "—";
-    }
-    return `${mw.toLocaleString("en-AU", {maximumFractionDigits: 1})} MW`;
+    return mw == null ? "—" : `${CAPACITY_FORMAT.format(mw)} MW`;
 }
 
-type UnitDateField = "commencement_date" | "closure_date" | "expected_closure_date" | "expected_operation_date";
-
-// Earliest or latest non-null value of a unit date field (ISO strings compare chronologically).
-function pickDate(units: FacilityUnit[], field: UnitDateField, pick: "earliest" | "latest"): string | null {
-    const dates = units
-        .map((unit) => unit[field])
-        .filter((date): date is string => Boolean(date))
-        .sort();
-    return (pick === "earliest" ? dates[0] : dates[dates.length - 1]) ?? null;
-}
-
-// Rolls unit details up to facility level for the card summary.
-// Test: statuses/fuel techs de-duplicated in first-seen order; earliest date chosen;
-//       no dates -> earliestCommencement null; capacity sums capacity_registered, skips
-//       battery_charging/battery_discharging, ignores nulls; all null -> totalCapacity null;
-//       Adelaide Desalination's units -> 34.2.
-export function summariseUnits(units: FacilityUnit[]) {
-    // ASSUMPTION: a facility's total capacity is the sum of its units' capacity_registered.
-    // battery_charging/battery_discharging units are skipped because they repeat the capacity of
-    // their parent "battery" unit (e.g. Adelaide Desalination lists 7.76 MW on all three).
-    // Units without a registered capacity are ignored; null if none have one.
-    const capacities = units
-        .filter((unit) => unit.fueltech_id !== "battery_charging" && unit.fueltech_id !== "battery_discharging")
-        .map((unit) => unit.capacity_registered)
-        .filter((capacity): capacity is number => capacity != null);
-
-    return {
-        statusIds: [...new Set(units.map((unit) => unit.status_id))],
-        fueltechIds: [...new Set(units.map((unit) => unit.fueltech_id))],
-        earliestCommencement: pickDate(units, "commencement_date", "earliest"),
-        totalCapacity: capacities.length > 0 ? capacities.reduce((sum, capacity) => sum + capacity, 0) : null
-    };
-}
+/** Filtering & sorting helpers */
 
 // Accepts both repeated params (?a=x&a=y) and comma lists (?a=x,y).
 // Test: [] -> []; repeated values; comma list; repeated + comma combined;
@@ -177,6 +111,11 @@ export function parseParams(values: string[]): string[] {
         .flatMap((value) => value.split(","))
         .map((value) => value.trim())
         .filter(Boolean);
+}
+
+// Returns the value if it's one of the options, else null
+function parseOption<T extends string>(value: string | null, options: FilterOption[]): T | null {
+    return options.some((option) => option.value === value) ? value as T : null;
 }
 
 // Reads facility filters from a URL query string (e.g. window.location.search).
@@ -219,13 +158,35 @@ export function buildSearchFromFilters(filters: FacilityFilters): string {
     return query ? `?${query}` : "";
 }
 
+const DATE_RANGE_INTERVAL: Record<PastDateRangeOptions | FutureDateRangeOptions, number> = {
+    lastMonth: -1,
+    lastQuarter: -3,
+    lastYear: -12,
+    nextMonth: 1,
+    nextQuarter: 3,
+    nextYear: 12
+};
+
+// API returns dates with timezone offset. This extracts calendar day, parsed as local midnight
+function extractDate(value: string): Date {
+    return parseISO(value.slice(0, 10));
+}
+
+export function isWithinDateRange(value: string | null | undefined, months: number, today = startOfToday()): boolean {
+    if (!value) {
+        return false;
+    }
+    const edge = addMonths(today, months);
+    return isWithinInterval(extractDate(value), months < 0 ? {start: edge, end: today} : {start: today, end: edge});
+}
+
 function unitMatches(unit: FacilityUnit, filters: FacilityFilters): boolean {
     const {statusIds, fueltechIds, commenced, expectedClosure, expectedOperation} = filters;
     return (statusIds.length === 0 || statusIds.includes(unit.status_id)) &&
         (fueltechIds.length === 0 || fueltechIds.includes(unit.fueltech_id)) &&
-        (!commenced || withinMonths(unit.commencement_date, RANGE_MONTHS[commenced])) &&
-        (!expectedOperation || withinMonths(unit.expected_operation_date, RANGE_MONTHS[expectedOperation])) &&
-        (!expectedClosure || withinMonths(unit.expected_closure_date, RANGE_MONTHS[expectedClosure]));
+        (!commenced || isWithinDateRange(unit.commencement_date, DATE_RANGE_INTERVAL[commenced])) &&
+        (!expectedOperation || isWithinDateRange(unit.expected_operation_date, DATE_RANGE_INTERVAL[expectedOperation])) &&
+        (!expectedClosure || isWithinDateRange(unit.expected_closure_date, DATE_RANGE_INTERVAL[expectedClosure]));
 }
 
 // Region matches at facility level; status, fuel tech and dates must all match on the same unit.
@@ -251,6 +212,24 @@ export function filterFacilities(facilities: Facility[], filters: FacilityFilter
     });
 }
 
+// Formats an API date e.g ("2005-01-06T00:00:00+10:00") -> "6 Jan 2005"
+export function formatDate(date: string | null | undefined): string {
+    return date ? format(extractDate(date), "d MMM yyyy") : "—";
+}
+
+type UnitDateField = "commencement_date" | "closure_date" | "expected_closure_date" | "expected_operation_date";
+
+// Earliest or latest non-null value of a unit date field, in one pass (ISO strings compare chronologically).
+function pickDate(units: FacilityUnit[], field: UnitDateField, pick: "earliest" | "latest"): string | null {
+    return units.reduce<string | null>((best, unit) => {
+        const date = unit[field];
+        if (!date) {
+            return best;
+        }
+        return !best || (pick === "earliest" ? date < best : date > best) ? date : best;
+    }, null);
+}
+
 // Null dates always sort last regardless of direction
 function compareDates(a: string | null, b: string | null, direction: "asc" | "desc"): number {
     if (a === b) {
@@ -268,9 +247,37 @@ function compareDates(a: string | null, b: string | null, direction: "asc" | "de
 // Lifecycle order used by the Status sort
 const STATUS_ORDER = ["operating", "commissioning", "committed", "retired"];
 
+// Rank of the facility's most active unit status (unknown statuses rank last)
+function statusRank(units: FacilityUnit[]): number {
+    return Math.min(...units.map((unit) => {
+        const index = STATUS_ORDER.indexOf(unit.status_id);
+        return index === -1 ? STATUS_ORDER.length : index;
+    }));
+}
+
+type SortKey = string | number | null;
+
+// Builds a date sort: which date to pick per facility and which direction to order it
+function dateSort(field: UnitDateField, pick: "earliest" | "latest", direction: "asc" | "desc") {
+    return {
+        key: (units: FacilityUnit[]): SortKey => pickDate(units, field, pick),
+        compare: (a: SortKey, b: SortKey) => compareDates(a as string | null, b as string | null, direction)
+    };
+}
+
+// How to derive and compare each sort's key
+const SORT_CONFIG: Record<SortBy, {key: (units: FacilityUnit[]) => SortKey; compare: (a: SortKey, b: SortKey) => number}> = {
+    status: {key: statusRank, compare: (a, b) => (a as number) - (b as number)},
+    commencement: dateSort("commencement_date", "earliest", "desc"),
+    closure: dateSort("closure_date", "latest", "desc"),
+    expectedClosure: dateSort("expected_closure_date", "earliest", "asc"),
+    expectedOperation: dateSort("expected_operation_date", "earliest", "asc")
+};
+
 // Status: by the facility's most active unit status (lifecycle order).
 // Commencement: earliest commencement, newest first. Closure: latest closure, newest first.
 // Expected closure / expected operation: earliest date, soonest first. Ties broken by name.
+// Only the selected sort's key is computed.
 // Test: null sortBy -> same order; each mode orders correctly; mixed-status facility ranks by
 //       its most active status; null dates last in both directions; ties broken by name;
 //       input array not mutated.
@@ -278,43 +285,44 @@ export function sortFacilities(facilities: Facility[], sortBy: SortBy | null): F
     if (!sortBy) {
         return facilities;
     }
-    const keyed = facilities.map((facility) => ({
-        facility,
-        statusRank: Math.min(...facility.units.map((unit) => {
-            const index = STATUS_ORDER.indexOf(unit.status_id);
-            return index === -1 ? STATUS_ORDER.length : index;
-        })),
-        commencement: pickDate(facility.units, "commencement_date", "earliest"),
-        closure: pickDate(facility.units, "closure_date", "latest"),
-        expectedClosure: pickDate(facility.units, "expected_closure_date", "earliest"),
-        expectedOperation: pickDate(facility.units, "expected_operation_date", "earliest")
-    }));
-
-    const compare = (a: typeof keyed[number], b: typeof keyed[number]): number => {
-        switch (sortBy) {
-            case "status":
-                return a.statusRank - b.statusRank;
-            case "commencement":
-                return compareDates(a.commencement, b.commencement, "desc");
-            case "closure":
-                return compareDates(a.closure, b.closure, "desc");
-            case "expectedClosure":
-                return compareDates(a.expectedClosure, b.expectedClosure, "asc");
-            case "expectedOperation":
-                return compareDates(a.expectedOperation, b.expectedOperation, "asc");
-        }
-    };
-
-    keyed.sort((a, b) => compare(a, b) || a.facility.name.localeCompare(b.facility.name));
-
-    return keyed.map(({facility}) => facility);
+    const {key, compare} = SORT_CONFIG[sortBy];
+    return facilities
+        .map((facility) => ({facility, sortKey: key(facility.units)}))
+        .sort((a, b) => compare(a.sortKey, b.sortKey) || a.facility.name.localeCompare(b.facility.name))
+        .map(({facility}) => facility);
 }
 
-// Sum of each facility's total capacity (same assumption as summariseUnits); null if none have one.
+// Rolls unit details up to facility level for the card summary.
+// Test: statuses/fuel techs de-duplicated in first-seen order; earliest date chosen;
+//       no dates -> earliestCommencement null; capacity sums capacity_registered, skips
+//       battery_charging/battery_discharging, ignores nulls; all null -> totalCapacity null;
+//       Adelaide Desalination's units -> 34.2.
+// ASSUMPTION: a facility's total capacity is the sum of its units' capacity_registered.
+// battery_charging/battery_discharging units are skipped because they repeat the capacity of
+// their parent "battery" unit (e.g. Adelaide Desalination lists 7.76 MW on all three).
+// Units without a registered capacity are ignored; null if none have one.
+function totalCapacity(units: FacilityUnit[]): number | null {
+    const capacities = units
+        .filter((unit) => unit.fueltech_id !== "battery_charging" && unit.fueltech_id !== "battery_discharging")
+        .map((unit) => unit.capacity_registered)
+        .filter((capacity): capacity is number => capacity != null);
+    return capacities.length > 0 ? capacities.reduce((sum, capacity) => sum + capacity, 0) : null;
+}
+
+export function summariseUnits(units: FacilityUnit[]) {
+    return {
+        statusIds: [...new Set(units.map((unit) => unit.status_id))],
+        fueltechIds: [...new Set(units.map((unit) => unit.fueltech_id))],
+        earliestCommencement: pickDate(units, "commencement_date", "earliest"),
+        totalCapacity: totalCapacity(units)
+    };
+}
+
+// Sum of each facility's total capacity (same assumption as totalCapacity); null if none have one.
 // Test: sums facility totals; facilities without capacity ignored; empty list / all null -> null.
 export function sumCapacity(facilities: Facility[]): number | null {
     const totals = facilities
-        .map((facility) => summariseUnits(facility.units).totalCapacity)
+        .map((facility) => totalCapacity(facility.units))
         .filter((total): total is number => total != null);
     return totals.length > 0 ? totals.reduce((sum, total) => sum + total, 0) : null;
 }

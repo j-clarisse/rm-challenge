@@ -4,10 +4,7 @@ import type {Facility} from '../types';
 import {
     formatCapacity,
     formatDate,
-    FUELTECH_OPTIONS,
     getLabel,
-    NETWORK_REGION_OPTIONS,
-    STATUS_OPTIONS,
     summariseUnits
 } from '../utils';
 
@@ -46,7 +43,7 @@ const FacilityCard = ({facility, showUnits}: FacilityCardProps) => {
                     <Group justify="space-between" wrap="nowrap" align="flex-start">
                         <Group gap="xs" wrap="nowrap">
                             <Text fw={600}>{facility.name}</Text>
-                            <Badge variant="light">{getLabel(NETWORK_REGION_OPTIONS, facility.network_region)}</Badge>
+                            <Badge variant="light">{getLabel(facility.network_region)}</Badge>
                             {earliestCommencement && (
                                 <Text size="sm" c="dimmed">Since {formatDate(earliestCommencement)}</Text>
                             )}
@@ -54,7 +51,7 @@ const FacilityCard = ({facility, showUnits}: FacilityCardProps) => {
                         <Group gap={4} justify="flex-end">
                             {statusIds.map((statusId) => (
                                 <Badge key={statusId} variant="light" color={STATUS_COLOUR_MAP[statusId]}>
-                                    {getLabel(STATUS_OPTIONS, statusId)}
+                                    {getLabel(statusId)}
                                 </Badge>
                             ))}
                         </Group>
@@ -62,7 +59,7 @@ const FacilityCard = ({facility, showUnits}: FacilityCardProps) => {
                     <Group gap={4}>
                         {fueltechIds.map((fueltechId) => (
                             <Badge key={fueltechId} variant="outline" color="gray">
-                                {getLabel(FUELTECH_OPTIONS, fueltechId)}
+                                {getLabel(fueltechId)}
                             </Badge>
                         ))}
                     </Group>
@@ -104,8 +101,8 @@ const FacilityCard = ({facility, showUnits}: FacilityCardProps) => {
                                 {facility.units.map((unit) => (
                                     <Table.Tr key={unit.code}>
                                         <Table.Td>{unit.code}</Table.Td>
-                                        <Table.Td>{getLabel(FUELTECH_OPTIONS, unit.fueltech_id)}</Table.Td>
-                                        <Table.Td>{getLabel(STATUS_OPTIONS, unit.status_id)}</Table.Td>
+                                        <Table.Td>{getLabel(unit.fueltech_id)}</Table.Td>
+                                        <Table.Td>{getLabel(unit.status_id)}</Table.Td>
                                         <Table.Td>{formatDate(unit.commencement_date)}</Table.Td>
                                         <Table.Td>{formatDate(unit.expected_operation_date)}</Table.Td>
                                         <Table.Td>{formatCapacity(unit.capacity_registered)}</Table.Td>
